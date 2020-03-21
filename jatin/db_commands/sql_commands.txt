@@ -1,0 +1,69 @@
+docker pull mcr.microsoft.com/mssql/server:2017-latest
+
+sudo docker run -e "ACCEPT_EULA=Y" -e "SA_PASSWORD=<YourStrong@Passw0rd>" \
+   -p 1433:1433 --name cs411proj \
+   -d mcr.microsoft.com/mssql/server:2017-latest
+
+sudo docker exec -it cs411proj /opt/mssql-tools/bin/sqlcmd \
+   -S localhost -U SA -P "<YourStrong@Passw0rd>" \
+   -Q 'ALTER LOGIN SA WITH PASSWORD="CS411proj"'
+
+CREATE DATABASE CS411Proj
+
+CREATE TABLE tweets (
+    tweet_id INT IDENTITY(1,1) PRIMARY KEY,
+    tweet_date DATETIME,
+    district INT,
+    first_name CHAR(100),
+    last_name CHAR(100),
+    likes INT,
+    party CHAR(100),
+    candidate CHAR(100),
+    tweet_text CHAR(560)
+);
+
+CREATE TABLE tweets_archive (
+    tweet_id INT IDENTITY(1,1) PRIMARY KEY,
+    week_start DATE,
+    district INT,
+    num_tweets INT,
+    total_likes INT,
+    party CHAR(100),
+    candidate CHAR(100),
+    most_liked_tweet CHAR(560)
+);
+
+CREATE PROCEDURE archive_last_week
+AS
+    DECLARE @current_time DATETIME = GETDATE();
+    DECLARE @one_week_ago DATETIME = CAST(CAST(@current_time AS FLOAT) - 7 AS DATETIME);
+
+    INSERT INTO tweets_archive
+    SELECT 
+        CAST(@one_week_ago AS DATE), subq.district, subq.num_tweets, subq.total_likes, subq.party, subq.candidate
+    FROM
+        (SELECT tweets.district, tweets.candidate, tweets.party, COUNT(*) as num_tweets, SUM(tweets.likes) as total_likes
+        FROM tweets
+        WHERE tweets.tweet_date BETWEEN @one_week_ago AND @current_time
+        GROUP BY tweets.district, tweets.candidate, tweets.party) subq;
+
+    DELETE FROM tweets
+    WHERE tweets.tweet_date BETWEEN @one_week_ago and @current_time;
+GO
+
+To call it, run:
+    EXEC dbo.archive_last_week
+
+tweets dummy data:
+---------------------
+INSERT INTO tweets
+VALUES ('2020-03-20 01:10:50', 14, 'Jatin', 'Mathur', 100, 'Democrat', 'Biden'),
+        ('2020-03-19 03:47:32', 16, 'Sejal', 'Parmar', 1, 'Republican', 'Trump'),
+        ('2020-03-18 17:27:25', 1, 'Soham', 'Saha', 50, 'Democrat', 'Bernie'),
+
+        ('2020-03-19 03:27:22', 14, 'Rando', '1', 10, 'Democrat', 'Biden'),
+        ('2020-03-20 11:17:09', 16, 'Rando', '2', 9, 'Republican', 'Trump'),
+        ('2020-03-19 20:11:47', 1, 'Rando', '3', 80, 'Democrat', 'Bernie'),
+
+        ('2020-03-19 06:20:45', 16, 'Rando', '4', 50, 'Democrat', 'Biden');
+
