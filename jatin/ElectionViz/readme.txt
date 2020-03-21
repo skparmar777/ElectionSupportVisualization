@@ -7,3 +7,9 @@ python manage.py shell
 from tweets.models import Tweets
 objs = Tweets.objects.all()
 objs
+
+to insert a bunch of random tweets into the database, run:
+    python manage.py shell
+
+    from generate_fake_tweets import generate_and_push_tweets
+    generate_and_push_tweets(1000)

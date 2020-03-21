@@ -15,7 +15,7 @@
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.0/js/bootstrap.min.js"></script>
 
     <!-- current commented out because it is not necessary, but in the future I could have the need for a stylesheet -->
-    <!-- <link rel='stylesheet' href='main.css'> -->
+    <link rel='stylesheet' href="{% static 'css/tweets_view.css' %}" type='text/css'/>
 
     <!-- initializes the SVG element -->
     <div class='svg-container'>
@@ -24,9 +24,9 @@
 </head>
 
 <script>
-    const data = JSON.parse('{{ data }}'.replace(/&quot;/g,'"'));
-    const map_json = JSON.parse('{{ map_json }}'.replace(/&quot;/g,'"'));
+    const tweetData = JSON.parse('{{ data }}'.replace(/&quot;/g,'"'));
+    const mapData = JSON.parse('{{ map_json }}'.replace(/&quot;/g,'"'));
 </script>
 
 <!-- the visualization script -->
-<script type="text/javascript" src="{% static 'js/visualization.js' %}"></script>
+<script type="text/javascript" src="{% static 'js/tweets_view.js' %}"></script>
