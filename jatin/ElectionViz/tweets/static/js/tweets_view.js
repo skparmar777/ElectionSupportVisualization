@@ -1,4 +1,5 @@
 // predeclared: tweetData, mapData, metric, setup
+// format of tweetData: DISTRICT -> PARTY -> CANDIDATE -> [total_likes, num_tweets, max_likes, tweet_text, first_name, last_name]
 // console.log('tweetData: ', tweetData);
 // console.log('mapData: ', mapData);
 // console.log('metric: ', metric);
@@ -18,7 +19,6 @@ $(function() {
                 if (xhttp.readyState == 4 && xhttp.status == 200) {
                     // render the new data
                     tweetData = JSON.parse(xhttp.responseText);
-                    parsedData = parseTweetData(tweetData);
                     colorMap();
                 }
             };
@@ -41,53 +41,6 @@ $(function() {
     callback(start, end);
 
 });
-
-const parseTweetData = function(tweetData) {
-    let parsed = {};
-    
-    for (let i = 0; i < tweetData.length; i++) {
-        const district = parseInt(tweetData[i]['district']);
-        const party = tweetData[i]['party'];
-        const candidate = tweetData[i]['candidate'];
-        const total_likes = parseInt(tweetData[i]['total_likes']);
-        const num_tweets = parseInt(tweetData[i]['num_tweets']);
-        const max_likes = parseInt(tweetData[i]['max_likes']);
-        const tweet_text = tweetData[i]['tweet_text'];
-        const first_name = tweetData[i]['first_name'];
-        const last_name = tweetData[i]['last_name'];
-        const tweet_date = tweetData[i]['tweet_date'];
-        if (!(district in parsed)) {
-            // initializes democrat and republican fields for the district
-            parsed[district] = {};
-            const parties = ['Democrat', 'Republican'];
-            for (let j = 0; j < parties.length; j++) {
-                const new_entry = {};
-                new_entry['candidate'] = null;
-                new_entry['total_likes'] = 0;
-                new_entry['num_tweets'] = 0;
-                new_entry['max_likes'] = 0;
-                new_entry['tweet_text'] = null;
-                new_entry['first_name'] = null;
-                new_entry['last_name'] = null;
-                new_entry['tweet_date'] = null;
-                parsed[district][parties[j]] = new_entry;
-            }
-        }
-        parsed[district][party]['candidate'] = candidate;
-        parsed[district][party]['total_likes'] = total_likes;
-        parsed[district][party]['num_tweets'] = num_tweets;
-        parsed[district][party]['max_likes'] = max_likes;
-        parsed[district][party]['tweet_text'] = tweet_text;
-        parsed[district][party]['first_name'] = first_name;
-        parsed[district][party]['last_name'] = last_name;
-        parsed[district][party]['tweet_date'] = tweet_date;
-    }
-    return parsed;
-};
-
-// puts data in format DISTRICT => PARTY => [candidate, total_likes, num_tweets]
-// easy for rendering
-let parsedData = parseTweetData(tweetData);
 
 // declare variables
 const width = 1200;
@@ -116,26 +69,29 @@ const hover_div = d3.select("body").append("div")
                                     .style("opacity", 0);
 
 const construct_hover_text = function(id) {
-    if (!(id in parsedData)) {
-        return "No tweets"
+    const dem_data = tweetData[id]['Democrat'];
+    const rep_data = tweetData[id]['Republican']
+    if (dem_data['combined']['num_tweets'] + rep_data['combined']['num_tweets'] == 0) {
+        // no tweets
+        return null;
     }
-    const dem_count = parsedData[id]['Democrat']['num_tweets'];
-    const dem_likes = parsedData[id]['Democrat']['total_likes'];
-    const rep_count = parsedData[id]['Republican']['num_tweets'];
-    const rep_likes = parsedData[id]['Republican']['total_likes'];
+    const dem_count = dem_data['combined']['num_tweets'];
+    const dem_likes = dem_data['combined']['total_likes'];
+    const rep_count = rep_data['combined']['num_tweets'];
+    const rep_likes = rep_data['combined']['total_likes'];
     let larger_party = 'Democrat';
-    if (parsedData[id]['Republican'][metric] > parsedData[id]['Democrat'][metric]) {
+    if (rep_data['combined'][metric] > dem_data['combined'][metric]) {
         larger_party = 'Republican';
     }
-    const pctg = Math.round(parsedData[id][larger_party][metric] / (parsedData[id]['Democrat'][metric] + parsedData[id]['Republican'][metric]) * 100 * 100) / 100;
-    const most_liked_tweet = parsedData[id][larger_party]['tweet_text'];
-    const num_likes = parsedData[id][larger_party]['max_likes'];
-    const first_name = parsedData[id][larger_party]['first_name'];
-    const last_name = parsedData[id][larger_party]['last_name'];
-    const tweet_date = parsedData[id][larger_party]['tweet_date'];
+    const pctg = Math.round(tweetData[id][larger_party]['combined'][metric] / (dem_data['combined'][metric] + rep_data['combined'][metric]) * 100 * 100) / 100;
+    const most_liked_tweet = tweetData[id][larger_party]['combined']['tweet_text'];
+    const num_likes = tweetData[id][larger_party]['combined']['max_likes'];
+    const first_name = tweetData[id][larger_party]['combined']['first_name'];
+    const last_name = tweetData[id][larger_party]['combined']['last_name'];
+    const tweet_date = tweetData[id][larger_party]['combined']['tweet_date'];
 
     // format
-    // pctg% <larger_party>
+    // Distric <id>: pctg% <larger_party>
     // <dem_count> D, <rep_count> R
     // <dem_likes> likes, <rep_likes> likes
     // 
@@ -143,7 +99,17 @@ const construct_hover_text = function(id) {
     // - <first_name> <last_name>
     // <num_likes> likes
     // <tweet_date>
-    return pctg.toString() + '% ' + larger_party + '\n' + dem_count.toString() + ' D, ' + rep_count.toString() + ' R\n' + dem_likes.toString() + ' &#x2665, ' + rep_likes.toString() + ' &#x2665\n\n"' + most_liked_tweet + '"\n- ' + first_name + ' ' + last_name + '\n' + num_likes.toString() + ' &#x2665\n' + tweet_date;
+
+    let date_string = null;
+    if (tweetData[id][larger_party]['combined']['date_descriptor'] === 'exact') {
+        date_string = tweet_date;
+    }
+    else {
+        // don't show time as this is not an exact date
+        const splits = tweet_date.split(' ');
+        date_string = 'Week of ' + splits[0] + ' '  + splits[1]
+    }
+    return '<u><strong>Distric ' + id.toString() + '</strong></u>\n' + pctg.toString() + '% ' + larger_party + '\n' + dem_count.toString() + ' D, ' + rep_count.toString() + ' R\n' + dem_likes.toString() + ' &#x2665, ' + rep_likes.toString() + ' &#x2665\n\n"' + most_liked_tweet + '"\n- ' + first_name + ' ' + last_name + '\n' + num_likes.toString() + ' &#x2665\n' + date_string;
 }
 
 // functions
@@ -177,9 +143,16 @@ const displayBaseMap = function () {
                  .duration(50)
                  .style("opacity", 1);
             const text = construct_hover_text(d.properties['DISTRICT']);
-            hover_div.html(text)
-                 .style("left", (d3.event.pageX + 10) + "px")
-                 .style("top", (d3.event.pageY - 15) + "px");
+            if (text !== null) {
+                hover_div.html(text)
+                            .style("left", (d3.event.pageX + 10) + "px")
+                            .style("top", (d3.event.pageY - 15) + "px");
+            }
+            else {
+                hover_div.transition()
+                            .duration('50')
+                            .style("opacity", 0);
+            }
        })
        .on('mouseout', function (d, i) {
             d3.select(this).transition()
@@ -206,11 +179,11 @@ hueScale = d3.scale.quantize()
                             .range(combinedList);
             
 const color_picker = function(id) {
-    if (!(id in parsedData)) {
+    if (!(id in tweetData)) {
         return d3.rgb(0, 0, 0);
     }
-    const district_data = parsedData[id];
-    const ratio = district_data['Democrat'][metric] / (district_data['Democrat'][metric] + district_data['Republican'][metric])
+    const district_data = tweetData[id];
+    const ratio = district_data['Democrat']['combined'][metric] / (district_data['Democrat']['combined'][metric] + district_data['Republican']['combined'][metric])
     // lower the ratio, reder the color
     // higher the ratio, bluer the color
     return hueScale(ratio);

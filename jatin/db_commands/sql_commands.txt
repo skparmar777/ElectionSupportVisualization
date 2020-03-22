@@ -36,37 +36,29 @@ CREATE TABLE tweets_archive (
     last_name CHAR(100)
 );
 
-CREATE PROCEDURE archive_last_week
+CREATE PROCEDURE keep_only_last_week
 AS
     DECLARE @current_time DATETIME = GETDATE();
-    DECLARE @one_week_ago DATETIME = CAST(CAST(@current_time AS FLOAT) - 7 AS DATETIME);
+    DECLARE @cutoff DATE = CAST(CAST(CAST(@current_time AS FLOAT) - 6 AS DATETIME) AS DATE);
+    DECLARE @one_week_ago DATE = CAST(CAST(CAST(@current_time AS FLOAT) - 7 AS DATETIME) AS DATE);
 
     INSERT INTO tweets_archive
     SELECT 
-        CAST(@one_week_ago AS DATE), subq.district, subq.num_tweets, subq.total_likes, subq.party, subq.candidate
+    CAST(DATEADD(wk, DATEDIFF(wk, 6, tweets.tweet_date), 0) AS DATE), subq.district, subq.num_tweets, subq.total_likes, subq.party, tweets.candidate, tweets.tweet_text, subq.max_likes, tweets.first_name, tweets.last_name
     FROM
-        (SELECT tweets.district, tweets.candidate, tweets.party, COUNT(*) as num_tweets, SUM(tweets.likes) as total_likes
+        (SELECT DISTINCT tweets.district, tweets.party, COUNT(*) as num_tweets, SUM(tweets.likes) as total_likes, MAX(tweets.likes) as max_likes
         FROM tweets
-        WHERE tweets.tweet_date BETWEEN @one_week_ago AND @current_time
-        GROUP BY tweets.district, tweets.candidate, tweets.party) subq;
+        WHERE tweets.tweet_date < @cutoff
+        GROUP BY tweets.district, tweets.party) subq, tweets
+    WHERE tweets.district = subq.district
+    AND tweets.party = subq.party
+    AND tweets.likes = subq.max_likes
+    AND tweets.tweet_date < @cutoff
 
     DELETE FROM tweets
-    WHERE tweets.tweet_date BETWEEN @one_week_ago and @current_time;
+    WHERE tweets.tweet_date < @cutoff;
 GO
 
+
 To call it, run:
-    EXEC dbo.archive_last_week
-
-tweets dummy data:
----------------------
-INSERT INTO tweets
-VALUES ('2020-03-20 01:10:50', 14, 'Jatin', 'Mathur', 100, 'Democrat', 'Biden'),
-        ('2020-03-19 03:47:32', 16, 'Sejal', 'Parmar', 1, 'Republican', 'Trump'),
-        ('2020-03-18 17:27:25', 1, 'Soham', 'Saha', 50, 'Democrat', 'Bernie'),
-
-        ('2020-03-19 03:27:22', 14, 'Rando', '1', 10, 'Democrat', 'Biden'),
-        ('2020-03-20 11:17:09', 16, 'Rando', '2', 9, 'Republican', 'Trump'),
-        ('2020-03-19 20:11:47', 1, 'Rando', '3', 80, 'Democrat', 'Bernie'),
-
-        ('2020-03-19 06:20:45', 16, 'Rando', '4', 50, 'Democrat', 'Biden');
-
+    EXEC dbo.keep_only_last_week
