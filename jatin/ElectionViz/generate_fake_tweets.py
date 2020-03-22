@@ -14,14 +14,13 @@ FAKE_TWEETS = [
     ('Trump is awesome!!', 'Trump', 'Republican'),
     ('Go trump :)', 'Trump', 'Republican'),
     ('This new policy by Trump is great', 'Trump', 'Republican'),
+    ('Trump is a legend', 'Trump', 'Republican'),
 
-    ('Go Biden!', 'Biden', 'Democrat'),
     ('Biden rocks', 'Biden', 'Democrat'),
     ('Biden has great policies', 'Biden', 'Democrat'),
     ('Biden seems super cool', 'Biden', 'Democrat'),
 
     ('Feel the bern!', 'Bernie', 'Democrat'),
-    ('Bernie ftw', 'Bernie', 'Democrat'),
     ('Bernie is the G!', 'Bernie', 'Democrat'),
 ]
 

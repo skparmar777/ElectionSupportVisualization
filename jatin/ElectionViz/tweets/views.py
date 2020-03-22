@@ -22,15 +22,44 @@ BASE_QUERY = "SELECT DISTINCT tweets.tweet_id, tweets.district, tweets.party, tw
 
 NUM_DISTRICTS = 18
 
+def get_previous_monday(dt):
+    return dt + timedelta(days=-dt.weekday(), hours=-dt.hour, minutes=-dt.minute, seconds=-dt.second, microseconds=-dt.microsecond)
+
 def is_in_current_week(start, end):
-    now = datetime.utcnow()
-    last_monday = now + timedelta(days=-now.weekday(), hours=-now.hour, minutes=-now.minute, seconds=-now.second, microseconds=-now.microsecond)
+    last_monday = get_previous_monday(datetime.utcnow())
     return start >= last_monday
 
 def is_before_current_week(start, end):
-    now = datetime.utcnow()
-    last_monday = now + timedelta(days=-now.weekday(), hours=-now.hour, minutes=-now.minute, seconds=-now.second, microseconds=-now.microsecond)
+    last_monday = get_previous_monday(datetime.utcnow())
     return end <= last_monday
+
+def get_data_as_dict(res_item):
+    cur = {}
+    cur['total_likes'] = res_item.total_likes
+    cur['num_tweets'] = res_item.num_tweets
+    cur['max_likes'] = res_item.max_likes
+    cur['tweet_text'] = res_item.tweet_text.strip()
+    cur['first_name'] = res_item.first_name.strip()
+    cur['last_name'] = res_item.last_name.strip()
+    dt = res_item.tweet_date
+    cur['tweet_date'] = dt.strftime('%B %d at %H:%M') # ex: March 21 at 18:13
+    return cur
+
+def merge_candidate_dicts(d1, d2):
+    '''
+    Merges data of two dicts of the same candidate from different weeks
+    '''
+    ret = {}
+    ret['total_likes'] = d1['total_likes'] + d2['total_likes']
+    ret['num_tweets'] = d1['num_tweets'] + d2['num_tweets']
+    max_dict = d1 if d1['max_likes'] > d2['max_likes'] else d2
+    ret['max_likes'] = max_dict['max_likes']
+    ret['tweet_text'] = max_dict['tweet_text']
+    ret['first_name'] = max_dict['first_name']
+    ret['last_name'] = max_dict['last_name']
+    ret['tweet_date'] = max_dict['tweet_date']
+    ret['date_descriptor'] = max_dict['date_descriptor']
+    return ret
 
 def serialize_results(res, descriptor):
     '''
@@ -49,17 +78,12 @@ def serialize_results(res, descriptor):
 
     for i in range(len(res)):
         district, party, candidate = res[i].district, res[i].party.strip(), res[i].candidate.strip()
-        data[district][party][candidate] = {}
-        cur = data[district][party][candidate]
-        cur['total_likes'] = res[i].total_likes
-        cur['num_tweets'] = res[i].num_tweets
-        cur['max_likes'] = res[i].max_likes
-        cur['tweet_text'] = res[i].tweet_text.strip()
-        cur['first_name'] = res[i].first_name.strip()
-        cur['last_name'] = res[i].last_name.strip()
-        dt = res[i].tweet_date
-        cur['tweet_date'] = dt.strftime('%B %d at %H:%M') # ex: March 21 at 18:13
+        cur = get_data_as_dict(res[i])
         cur['date_descriptor'] = descriptor
+        if candidate in data[district][party]:
+            # happens when there are multiple weeks (tweets_archive table)
+            cur = merge_candidate_dicts(data[district][party][candidate], cur)
+        data[district][party][candidate] = cur
 
     for d in range(1, NUM_DISTRICTS + 1):
         for party in parties:
@@ -92,7 +116,7 @@ def serialize_results(res, descriptor):
     return data
 
 def get_tweets_query(start, end):
-    query = "SELECT DISTINCT tweets.tweet_id, tweets.district, tweets.party, tweets.candidate, T1.total_likes, T1.num_tweets, tweets.first_name, tweets.last_name, T1.max_likes, tweets.tweet_text, tweets.tweet_date \
+    query = "SELECT tweets.tweet_id, tweets.district, tweets.party, tweets.candidate, T1.total_likes, T1.num_tweets, tweets.first_name, tweets.last_name, T1.max_likes, tweets.tweet_text, tweets.tweet_date \
                     FROM \
                         (SELECT tweets.district, tweets.party, tweets.candidate, SUM(tweets.likes) as total_likes, COUNT(*) as num_tweets, MAX(tweets.likes) as max_likes \
                         FROM tweets \
@@ -104,7 +128,8 @@ def get_tweets_query(start, end):
     return query
 
 def get_tweets_archive_query(start, end):
-    query = "SELECT tweets_archive.tweet_id, tweets_archive.district, tweets_archive.party, tweets_archive.candidate, tweets_archive.total_likes, tweets_archive.num_tweets, tweets_archive.likes as max_likes, tweets_archive.most_liked_tweet as tweet_text, tweets_archive.first_name, tweets_archive.last_name, tweets_archive.week_start as tweet_date\
+    start = get_previous_monday(start)
+    query = "SELECT tweets_archive.week_start, tweets_archive.week_start as tweet_date, tweets_archive.district, tweets_archive.party, tweets_archive.candidate, tweets_archive.total_likes, tweets_archive.num_tweets, tweets_archive.likes as max_likes, tweets_archive.most_liked_tweet as tweet_text, tweets_archive.first_name, tweets_archive.last_name\
             FROM tweets_archive \
             WHERE tweets_archive.week_start \
             BETWEEN '{}' AND '{}'".format(start.strftime('%Y-%m-%d %H:%M:%S'), end.strftime('%Y-%m-%d %H:%M:%S'))
@@ -188,23 +213,20 @@ def tweet_view(request):
         start = splits[0].strip()
         end = splits[1].strip()
         start = datetime.strptime(start, '%B %d, %Y')
-        end = datetime.strptime(end, '%B %d, %Y') + timedelta(days=1)
+        end = datetime.strptime(end, '%B %d, %Y') + timedelta(hours=23, minutes=59, seconds=59)
         query = None
         data = None
         if is_in_current_week(start, end):
-            print('is current week')
             # uses Tweets db
             query = get_tweets_query(start, end)
             res = list(Tweets.objects.raw(query))
             data = serialize_results(res, 'exact')
         elif is_before_current_week(start, end):
-            print('is prev week')
             # uses Tweets Archive table
             query = get_tweets_archive_query(start, end)
             res = list(TweetsArchive.objects.raw(query))
             data = serialize_results(res, 'weekly')
         else:
-            print('need to merge')
             # run both and merge results
             query1 = get_tweets_query(start, end)
             query2 = get_tweets_archive_query(start, end)
@@ -213,9 +235,6 @@ def tweet_view(request):
             data1 = serialize_results(res1, 'exact')
             data2 = serialize_results(res2, 'weekly')
             data = merge_tweets_and_tweet_archive(data1, data2)
-            # print('data1', data1)
-            # print('data2', data2)
-            # print('data', data)
 
         return HttpResponse(json.dumps(data))
 
