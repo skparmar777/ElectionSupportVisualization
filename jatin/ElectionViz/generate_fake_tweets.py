@@ -1,8 +1,11 @@
 from datetime import timedelta
-from django.utils import timezone
+from datetime import datetime
+import pytz
 import random
 
 from tweets.models import Tweets
+
+# ---- CONFIG variables ----
 
 # FORMAT
 # text, candidate, party
@@ -16,6 +19,10 @@ FAKE_TWEETS = [
     ('Biden rocks', 'Biden', 'Democrat'),
     ('Biden has great policies', 'Biden', 'Democrat'),
     ('Biden seems super cool', 'Biden', 'Democrat'),
+
+    ('Feel the bern!', 'Bernie', 'Democrat'),
+    ('Bernie ftw', 'Bernie', 'Democrat'),
+    ('Bernie is the G!', 'Bernie', 'Democrat'),
 ]
 
 FAKE_FIRST_NAMES = [
@@ -36,11 +43,14 @@ FAKE_LAST_NAMES = [
     'Halloway'
 ]
 
-CUR_TIME = timezone.now()
-DAY_RANGE = 6 # can generate times between now and 6 days ago
+CUR_TIME = datetime.now(pytz.utc) # all times in UTC
+DAY_RANGE = 90 # can generate times between now and DAY_RANGE days ago
 START_TIME = CUR_TIME - timedelta(days=DAY_RANGE)
 
 NUM_DISTRICTS = 18
+
+
+# ----------------------------
 
 def select_random(l):
     return l[random.randint(0, len(l) - 1)]
@@ -77,10 +87,7 @@ def generate_and_push_tweets(num_fake_tweets):
     party CHAR(100),
     candidate CHAR(100),
     tweet_text CHAR(560)
-
-    returns SQL query
     '''
-
     for _ in range(num_fake_tweets):
         nt = generate_random_tweet()
         Tweets(tweet_date = nt[0],
