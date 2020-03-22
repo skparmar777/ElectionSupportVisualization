@@ -9,24 +9,55 @@
     <script src="https://d3js.org/d3.v3.min.js"></script>
     <script src = "https://cdnjs.cloudflare.com/ajax/libs/d3-legend/1.13.0/d3-legend.min.js"></script>
 
+    <!-- bootstrap stuff -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
 
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.0/css/bootstrap.min.css">
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.0/js/bootstrap.min.js"></script>
+    <!-- date picker library -->
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/momentjs/latest/moment.min.js"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css" />
 
     <!-- current commented out because it is not necessary, but in the future I could have the need for a stylesheet -->
     <link rel='stylesheet' href="{% static 'css/tweets_view.css' %}" type='text/css'/>
 
-    <!-- initializes the SVG element -->
-    <div class='svg-container'>
-        <svg></svg>
-    </div>
+    <!-- initializes global variables in JS -->
+    <script>
+        let setup = 1; // 1 until basics are run for the first time
+        let metric = 'num_tweets'; // num_tweets or total_likes
+        let tweetData = JSON.parse('{{ data }}'.replace(/&quot;/g,'"'));
+        const mapData = JSON.parse('{{ map_json }}'.replace(/&quot;/g,'"'));
+    </script>
 </head>
 
-<script>
-    const tweetData = JSON.parse('{{ data }}'.replace(/&quot;/g,'"'));
-    const mapData = JSON.parse('{{ map_json }}'.replace(/&quot;/g,'"'));
-</script>
+<body>
+     <!-- initializes the SVG element -->
+     <div class='svg-container'>
+        <svg></svg>
+    </div>
+
+    <!-- metric chooser  -->
+    <div class="dropdown">
+        <button class="btn btn-secondary dropdown-toggle" type="button" id="tweet_vs_likes_button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+            Choose Metric
+        </button>
+        <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+            <a class="dropdown-item" onclick="metric = 'num_tweets'; colorMap(); renameDropdown();">Tweets</a>
+            <a class="dropdown-item" onclick="metric = 'total_likes'; colorMap(); renameDropdown();">Likes</a>
+        </div>
+    </div>
+
+    <!-- initialize the date range picker -->
+    <div class="date_range_picker">
+        <div id="reportrange" style="background: #fff; cursor: pointer; padding: 5px 10px; border: 1px solid #ccc; width: 100%">
+            <i class="fa fa-calendar"></i>&nbsp;
+            <span></span> <i class="fa fa-caret-down"></i>
+        </div>
+    </div>
+</body>
 
 <!-- the visualization script -->
 <script type="text/javascript" src="{% static 'js/tweets_view.js' %}"></script>
+

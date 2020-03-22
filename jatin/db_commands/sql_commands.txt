@@ -30,7 +30,10 @@ CREATE TABLE tweets_archive (
     total_likes INT,
     party CHAR(100),
     candidate CHAR(100),
-    most_liked_tweet CHAR(560)
+    most_liked_tweet CHAR(560),
+    likes INT,
+    first_name CHAR(100),
+    last_name CHAR(100)
 );
 
 CREATE PROCEDURE archive_last_week

@@ -1,5 +1,46 @@
+// predeclared: tweetData, mapData, metric, setup
 // console.log('tweetData: ', tweetData);
 // console.log('mapData: ', mapData);
+// console.log('metric: ', metric);
+
+// date range library
+$(function() {
+    var start = moment().subtract(6, 'days');
+    var end = moment();
+
+    function callback(start, end) {
+        $('#reportrange span').html(start.format('MMMM D, YYYY') + ' - ' + end.format('MMMM D, YYYY'));
+        if (setup != 1) {
+            // POST request with new payload
+            var xhttp = new XMLHttpRequest();
+            const params = "daterange=" + $('#reportrange span').text();
+            xhttp.onreadystatechange = function() {
+                if (xhttp.readyState == 4 && xhttp.status == 200) {
+                    // render the new data
+                    tweetData = JSON.parse(xhttp.responseText);
+                    parsedData = parseTweetData(tweetData);
+                    colorMap();
+                }
+            };
+            xhttp.open("POST", window.location.href, false);
+            xhttp.send(params);
+        }
+        setup = 0;
+    }
+
+    $('#reportrange').daterangepicker({
+        startDate: start,
+        endDate: end,
+        ranges: {
+           'Today': [moment(), moment()],
+           'Yesterday': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
+           'Last 7 Days': [moment().subtract(6, 'days'), moment()],
+        }
+    }, callback);
+
+    callback(start, end);
+
+});
 
 const parseTweetData = function(tweetData) {
     let parsed = {};
@@ -14,19 +55,22 @@ const parseTweetData = function(tweetData) {
         const tweet_text = tweetData[i]['tweet_text'];
         const first_name = tweetData[i]['first_name'];
         const last_name = tweetData[i]['last_name'];
+        const tweet_date = tweetData[i]['tweet_date'];
         if (!(district in parsed)) {
             // initializes democrat and republican fields for the district
             parsed[district] = {};
             const parties = ['Democrat', 'Republican'];
             for (let j = 0; j < parties.length; j++) {
-                parsed[district][parties[j]] = {};
-                parsed[district][parties[j]]['candidate'] = null;
-                parsed[district][parties[j]]['total_likes'] = 0;
-                parsed[district][parties[j]]['num_tweets'] = 0;
-                parsed[district][parties[j]]['max_likes'] = 0;
-                parsed[district][parties[j]]['tweet_text'] = null;
-                parsed[district][parties[j]]['first_name'] = null;
-                parsed[district][parties[j]]['last_name'] = null;
+                const new_entry = {};
+                new_entry['candidate'] = null;
+                new_entry['total_likes'] = 0;
+                new_entry['num_tweets'] = 0;
+                new_entry['max_likes'] = 0;
+                new_entry['tweet_text'] = null;
+                new_entry['first_name'] = null;
+                new_entry['last_name'] = null;
+                new_entry['tweet_date'] = null;
+                parsed[district][parties[j]] = new_entry;
             }
         }
         parsed[district][party]['candidate'] = candidate;
@@ -36,13 +80,14 @@ const parseTweetData = function(tweetData) {
         parsed[district][party]['tweet_text'] = tweet_text;
         parsed[district][party]['first_name'] = first_name;
         parsed[district][party]['last_name'] = last_name;
+        parsed[district][party]['tweet_date'] = tweet_date;
     }
     return parsed;
 };
 
 // puts data in format DISTRICT => PARTY => [candidate, total_likes, num_tweets]
 // easy for rendering
-const parsedData = parseTweetData(tweetData);
+let parsedData = parseTweetData(tweetData);
 
 // declare variables
 const width = 1200;
@@ -71,26 +116,34 @@ const hover_div = d3.select("body").append("div")
                                     .style("opacity", 0);
 
 const construct_hover_text = function(id) {
+    if (!(id in parsedData)) {
+        return "No tweets"
+    }
     const dem_count = parsedData[id]['Democrat']['num_tweets'];
+    const dem_likes = parsedData[id]['Democrat']['total_likes'];
     const rep_count = parsedData[id]['Republican']['num_tweets'];
+    const rep_likes = parsedData[id]['Republican']['total_likes'];
     let larger_party = 'Democrat';
-    if (rep_count > dem_count) {
+    if (parsedData[id]['Republican'][metric] > parsedData[id]['Democrat'][metric]) {
         larger_party = 'Republican';
     }
-    const pctg = Math.round(parsedData[id][larger_party]['num_tweets'] / (dem_count + rep_count) * 100 * 100) / 100;
+    const pctg = Math.round(parsedData[id][larger_party][metric] / (parsedData[id]['Democrat'][metric] + parsedData[id]['Republican'][metric]) * 100 * 100) / 100;
     const most_liked_tweet = parsedData[id][larger_party]['tweet_text'];
     const num_likes = parsedData[id][larger_party]['max_likes'];
     const first_name = parsedData[id][larger_party]['first_name'];
     const last_name = parsedData[id][larger_party]['last_name'];
+    const tweet_date = parsedData[id][larger_party]['tweet_date'];
 
     // format
     // pctg% <larger_party>
     // <dem_count> D, <rep_count> R
+    // <dem_likes> likes, <rep_likes> likes
     // 
     // "<most_liked_tweet>"
     // - <first_name> <last_name>
     // <num_likes> likes
-    return pctg.toString() + '% ' + larger_party + '\n' + dem_count.toString() + ' D, ' + rep_count.toString() + ' R\n\n"' + most_liked_tweet + '"\n- ' + first_name + ' ' + last_name + '\n' + num_likes.toString() + ' likes';
+    // <tweet_date>
+    return pctg.toString() + '% ' + larger_party + '\n' + dem_count.toString() + ' D, ' + rep_count.toString() + ' R\n' + dem_likes.toString() + ' &#x2665, ' + rep_likes.toString() + ' &#x2665\n\n"' + most_liked_tweet + '"\n- ' + first_name + ' ' + last_name + '\n' + num_likes.toString() + ' &#x2665\n' + tweet_date;
 }
 
 // functions
@@ -157,7 +210,7 @@ const color_picker = function(id) {
         return d3.rgb(0, 0, 0);
     }
     const district_data = parsedData[id];
-    const ratio = district_data['Democrat']['num_tweets'] / (district_data['Democrat']['num_tweets'] + district_data['Republican']['num_tweets'])
+    const ratio = district_data['Democrat'][metric] / (district_data['Democrat'][metric] + district_data['Republican'][metric])
     // lower the ratio, reder the color
     // higher the ratio, bluer the color
     return hueScale(ratio);
@@ -170,6 +223,14 @@ const colorMap = function() {
             return color_picker(d.properties['DISTRICT']);
         });
 }
+
+const renameDropdown = function() {
+    let newText = 'Tweets';
+    if (metric === 'total_likes') {
+        newText = 'Likes';
+    }
+    $("#tweet_vs_likes_button").text(newText);
+};
 
 displayBaseMap();
 colorMap();

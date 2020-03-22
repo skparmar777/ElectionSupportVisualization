@@ -7,6 +7,22 @@ div.hover-text {
     border: 1px solid #708090;
     border-radius: 8px;
     pointer-events: none;
-    font-size: 1.3rem;
+    font-size: 1rem;
     white-space: pre-line;
+}
+
+.dropdown {
+    position: absolute;
+    left: 100px;
+    top: 100px;
+}
+
+#tweet_vs_likes_button {
+    width: 150px !important;
+}
+
+.date_range_picker {
+    position: absolute;
+    left: 100px;
+    top: 200px;
 }
