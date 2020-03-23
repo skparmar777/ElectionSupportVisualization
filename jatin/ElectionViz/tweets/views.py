@@ -11,13 +11,14 @@ import numpy as np
 
 import pprint
 
-BASE_QUERY = "SELECT DISTINCT tweets.tweet_id, tweets.district, tweets.party, tweets.candidate, T1.total_likes, T1.num_tweets, tweets.first_name, tweets.last_name, T1.max_likes, tweets.tweet_text, tweets.tweet_date \
+BASE_QUERY = "SELECT tweets.tweet_id, tweets.district, tweets.party, tweets.candidate, T1.total_likes, T1.num_tweets, tweets.first_name, tweets.last_name, T1.max_likes, tweets.tweet_text, tweets.tweet_date \
             FROM \
-                (SELECT tweets.district as district, tweets.party as party, SUM(tweets.likes) as total_likes, COUNT(*) as num_tweets, MAX(tweets.likes) as max_likes \
+                (SELECT tweets.district, tweets.party, tweets.candidate, SUM(tweets.likes) as total_likes, COUNT(*) as num_tweets, MAX(tweets.likes) as max_likes \
                 FROM tweets \
-                GROUP BY tweets.district, tweets.party) T1, tweets \
+                GROUP BY tweets.district, tweets.party, tweets.candidate) T1, tweets \
             WHERE tweets.district = T1.district \
             AND tweets.party = T1.party \
+            AND tweets.candidate = T1.candidate \
             AND tweets.likes = T1.max_likes"
 
 NUM_DISTRICTS = 18
@@ -25,13 +26,16 @@ NUM_DISTRICTS = 18
 def get_previous_monday(dt):
     return dt + timedelta(days=-dt.weekday(), hours=-dt.hour, minutes=-dt.minute, seconds=-dt.second, microseconds=-dt.microsecond)
 
+def get_tweets_cutoff(dt):
+    return dt + timedelta(days=-6, hours=-dt.hour, minutes=-dt.minute, seconds=-dt.second, microseconds=-dt.microsecond)
+
 def is_in_current_week(start, end):
     last_monday = get_previous_monday(datetime.utcnow())
     return start >= last_monday
 
 def is_before_current_week(start, end):
-    last_monday = get_previous_monday(datetime.utcnow())
-    return end <= last_monday
+    cutoff = get_tweets_cutoff(datetime.utcnow())
+    return end < cutoff
 
 def get_data_as_dict(res_item):
     cur = {}
@@ -80,7 +84,7 @@ def serialize_results(res, descriptor):
         district, party, candidate = res[i].district, res[i].party.strip(), res[i].candidate.strip()
         cur = get_data_as_dict(res[i])
         cur['date_descriptor'] = descriptor
-        if candidate in data[district][party]:
+        if candidate in data[district][party] and descriptor != 'exact': # if descriptor is exact, ignore possible duplicates
             # happens when there are multiple weeks (tweets_archive table)
             cur = merge_candidate_dicts(data[district][party][candidate], cur)
         data[district][party][candidate] = cur
@@ -124,15 +128,18 @@ def get_tweets_query(start, end):
                         GROUP BY tweets.district, tweets.party, tweets.candidate) T1, tweets \
                     WHERE tweets.district = T1.district \
                     AND tweets.party = T1.party \
+                    AND tweets.candidate = T1.candidate \
                     AND tweets.likes = T1.max_likes".format(start.strftime('%Y-%m-%d %H:%M:%S'), end.strftime('%Y-%m-%d %H:%M:%S'))
+    # print(query)
     return query
 
 def get_tweets_archive_query(start, end):
-    start = get_previous_monday(start)
+    start = get_previous_monday(start) if start.weekday() != 0 else start # if not already a monday
     query = "SELECT tweets_archive.week_start, tweets_archive.week_start as tweet_date, tweets_archive.district, tweets_archive.party, tweets_archive.candidate, tweets_archive.total_likes, tweets_archive.num_tweets, tweets_archive.likes as max_likes, tweets_archive.most_liked_tweet as tweet_text, tweets_archive.first_name, tweets_archive.last_name\
             FROM tweets_archive \
             WHERE tweets_archive.week_start \
             BETWEEN '{}' AND '{}'".format(start.strftime('%Y-%m-%d %H:%M:%S'), end.strftime('%Y-%m-%d %H:%M:%S'))
+    # print(query)
     return query
 
 def merge_tweets_and_tweet_archive(tweets_data, tweets_archive_data):
@@ -198,6 +205,20 @@ def merge_tweets_and_tweet_archive(tweets_data, tweets_archive_data):
 
     return data
 
+def find_all_candidates(data):
+    democrat_candidates = set()
+    republican_candidates = set()
+    for i in range(1, NUM_DISTRICTS + 1):
+        for k in data[i]['Democrat'].keys():
+            if k == 'combined':
+                continue
+            democrat_candidates.add(k)
+        for k in data[i]['Republican'].keys():
+            if k == 'combined':
+                continue
+            republican_candidates.add(k)
+    return list(democrat_candidates), list(republican_candidates)
+
 # Create your views here.
 @csrf_exempt
 def tweet_view(request):
@@ -217,16 +238,19 @@ def tweet_view(request):
         query = None
         data = None
         if is_in_current_week(start, end):
+            # print('is cur week')
             # uses Tweets db
             query = get_tweets_query(start, end)
             res = list(Tweets.objects.raw(query))
             data = serialize_results(res, 'exact')
         elif is_before_current_week(start, end):
+            # print('is prev week')
             # uses Tweets Archive table
             query = get_tweets_archive_query(start, end)
             res = list(TweetsArchive.objects.raw(query))
             data = serialize_results(res, 'weekly')
         else:
+            # print('need to merge')
             # run both and merge results
             query1 = get_tweets_query(start, end)
             query2 = get_tweets_archive_query(start, end)
@@ -235,17 +259,18 @@ def tweet_view(request):
             data1 = serialize_results(res1, 'exact')
             data2 = serialize_results(res2, 'weekly')
             data = merge_tweets_and_tweet_archive(data1, data2)
-
         return HttpResponse(json.dumps(data))
 
     # get HTML and base map with everything in Tweets (1w)
     else:
         res = list(Tweets.objects.raw(BASE_QUERY))
         data = serialize_results(res, 'exact')
-
+        democrat_candidates, republican_candidates = find_all_candidates(data)
         fp = open('tweets/data/illinois.json', 'rb')
         context = {
             'data': json.dumps(data),
+            'democrat_candidates': json.dumps(democrat_candidates),
+            'republican_candidates': json.dumps(republican_candidates),
             'map_json': json.dumps(json.load(fp))
         }
         fp.close()

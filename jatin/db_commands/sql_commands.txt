@@ -33,7 +33,7 @@ CREATE TABLE tweets_archive (
     likes INT,
     first_name CHAR(100),
     last_name CHAR(100),
-    PRIMARY KEY (week_start, district, candidate)
+    PRIMARY KEY (week_start, district, party, candidate)
 );
 
 CREATE PROCEDURE keep_only_last_week
@@ -68,7 +68,7 @@ To call it, run:
 
 CREATE TRIGGER merge_incoming_data
 ON tweets_archive
-FOR INSERT
+INSTEAD OF INSERT
 AS
 
 IF (

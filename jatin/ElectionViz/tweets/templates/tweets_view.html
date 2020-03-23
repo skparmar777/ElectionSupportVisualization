@@ -20,6 +20,13 @@
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
     <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css" />
 
+    <!-- select2 library -->
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/css/select2.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/js/select2.min.js"></script>
+
+    <!-- font awesome -->
+    <script src="https://kit.fontawesome.com/52b21dbc54.js"></script>
+
     <!-- current commented out because it is not necessary, but in the future I could have the need for a stylesheet -->
     <link rel='stylesheet' href="{% static 'css/tweets_view.css' %}" type='text/css'/>
 
@@ -29,6 +36,8 @@
         let metric = 'num_tweets'; // num_tweets or total_likes
         let tweetData = JSON.parse('{{ data }}'.replace(/&quot;/g,'"'));
         const mapData = JSON.parse('{{ map_json }}'.replace(/&quot;/g,'"'));
+        let democrat_candidates = JSON.parse('{{ democrat_candidates }}'.replace(/&quot;/g,'"'));
+        let republican_candidates = JSON.parse('{{ republican_candidates }}'.replace(/&quot;/g,'"'));
     </script>
 </head>
 
@@ -41,7 +50,7 @@
     <!-- metric chooser  -->
     <div class="dropdown">
         <button class="btn btn-secondary dropdown-toggle" type="button" id="tweet_vs_likes_button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-            Choose Metric
+            Tweets
         </button>
         <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
             <a class="dropdown-item" onclick="metric = 'num_tweets'; colorMap(); renameDropdown();">Tweets</a>
@@ -56,6 +65,16 @@
             <span></span> <i class="fa fa-caret-down"></i>
         </div>
     </div>
+
+    <!-- initialize the candidate picker -->
+    <div class="candidate_picker">
+        <select id="select2_candidate_picker" name="candidates[]" multiple="multiple">
+            <!-- <option>Biden</option>
+            <option>Bernie</option>
+            <option>Trump</option> -->
+        </select>
+    </div>
+
 </body>
 
 <!-- the visualization script -->

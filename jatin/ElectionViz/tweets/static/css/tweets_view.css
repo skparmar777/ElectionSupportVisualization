@@ -26,3 +26,11 @@ div.hover-text {
     left: 100px;
     top: 200px;
 }
+
+.candidate_picker {
+    position: absolute;
+    left: 100px;
+    top: 300px;
+    width: 300px;
+}
+
