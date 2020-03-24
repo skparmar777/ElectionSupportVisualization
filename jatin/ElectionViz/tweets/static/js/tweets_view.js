@@ -4,6 +4,12 @@
 // console.log('mapData: ', mapData);
 // console.log('metric: ', metric);
 
+const reset = function() {
+    chosen_democrats = [];
+    chosen_republicans = [];
+    opacity_dict = null;
+}
+
 // date range library
 $(function() {
     var start = moment().subtract(6, 'days');
@@ -72,8 +78,7 @@ const is_democrat = function(candidate) {
 
 const updateCandidates = function() {
     const objs = $('#select2_candidate_picker').select2('data');
-    chosen_democrats = [];
-    chosen_republicans = [];
+    reset();
     for (let i = 0; i < objs.length; i++) {
         const candidate = objs[i]['text'];
         if (is_democrat(candidate)) {
@@ -81,6 +86,13 @@ const updateCandidates = function() {
         } else {
             chosen_republicans.push(candidate);
         }
+    }
+
+    if (chosen_republicans.length === 0 && chosen_democrats.length > 0) {
+        assign_candidates_colors('Democrat', chosen_democrats);
+    }
+    else if (chosen_democrats.length === 0 && chosen_republicans.length > 0) {
+        assign_candidates_colors('Republican', chosen_democrats);
     }
     colorMap();
 }
@@ -105,8 +117,8 @@ const svg = d3.select('svg')
                 .attr('width', width)
                 .attr('height', height);
 
-// const legendLayer = svg.append('g')
-//                         .classed('map-layer', true);
+const legendLayer = svg.append('g')
+                        .classed('map-layer', true);
 
 const mapLayer = svg.append('g')
                     .classed('map-layer', true);
@@ -402,9 +414,16 @@ const displayBaseMap = function () {
             }
        })
        .on('mouseout', function (d, i) {
-            d3.select(this).transition()
-                 .duration('50')
-                 .attr('opacity', '1');
+            if (opacity_dict !== null) {
+                d3.select(this).transition()
+                    .duration('50')
+                    .attr('opacity', opacity_dict[d.properties['DISTRICT']]);
+            }
+            else {
+                d3.select(this).transition()
+                    .duration('50')
+                    .attr('opacity', '1');
+            }
             hover_div.transition()
                  .duration('50')
                  .style("opacity", 0);
@@ -421,29 +440,48 @@ const blueList = ['rgb(188, 210, 232)', 'rgb(145, 186, 214)', 'rgb(115, 165, 198
 
 const combinedList = redList.concat(blueList);
 
-hueScale = d3.scale.quantize()
+const drColorScale = d3.scale.quantize()
                             .domain([0, 1.0])
                             .range(combinedList);
+
+const blueCandidateColors = ['rgb(0, 63, 92)', 'rgb(122, 81, 149)', 'rgb(239, 86, 117)', 'rgb(255, 166, 0)'];
+let cand_to_color = null;
+let opacity_dict = null;
+
+const assign_candidates_colors = function(party, candidates) {
+    // assume party is democrat for now
+    cand_to_color = {};
+    opacity_dict = {};
+    for (let i = 0; i < candidates.length; i++) {
+        cand_to_color[candidates[i]] = blueCandidateColors[i];
+    }
+}
+
+const rColorScale = d3.scale.quantize()
+                            .domain([0, 1.0])
+                            .range(redList);
 
 const color_picker_single_party = function(id, party, candidates) {
     // chooses a color based on the candidates in a single party
     if (candidates.length === 1) {
         // color according to party
         if (party === 'Democrat') {
-            return hueScale(1.0);
+            return drColorScale(0.75);
         }
         else {
-            return hueScale(0.0);
+            return drColorScale(0.25);
         }
     }
     const district_data = tweetData[id];
     let party_total = 0;
     let party_largest = 0;
+    let largest_cand = null;
     for (let i = 0; i < candidates.length; i++) {
         if (candidates[i] in district_data[party]) {
             const cand_metric = district_data[party][candidates[i]][metric];
             if (cand_metric > party_largest) {
                 party_largest = cand_metric;
+                largest_cand = candidates[i];
             }
             party_total += cand_metric;
         }
@@ -451,7 +489,9 @@ const color_picker_single_party = function(id, party, candidates) {
     if (party_total === 0) {
         return d3.rgb(0, 0, 0);
     }
-    return hueScale(party_largest / party_total);
+
+    opacity_dict[id] = party_largest / party_total;
+    return cand_to_color[largest_cand];
 }
 
 const color_picker = function(id) {
@@ -489,15 +529,51 @@ const color_picker = function(id) {
     }
     // lower the ratio, reder the color
     // higher the ratio, bluer the color
-    return hueScale(ratio);
+    return drColorScale(ratio);
 }
 
 const colorMap = function() {
     mapLayer.selectAll('path')
         .style('fill', function (d) {
             // console.log(d);
-            return color_picker(d.properties['DISTRICT']);
+            const color = color_picker(d.properties['DISTRICT']);
+            if (opacity_dict !== null) {
+                d3.select(this).transition()
+                                .duration('50')
+                                .attr('opacity', opacity_dict[d.properties['DISTRICT']]);
+            }
+            else {
+                d3.select(this).transition()
+                                .duration('50')
+                                .attr('opacity', 1);
+            }
+            return color;
         });
+}
+
+const createLegend = function() {
+    legendLayer.select('g').remove();
+    const legend = legendLayer.append("g")
+                                .attr("class", "quantize")
+                                .attr("transform", "translate(" + width / 9 + "," + height / 2 + ")")
+                                .style('font-family', 'Garamond')
+                                .style('font-size', '16')
+                                .style('position', 'absolute');
+
+    const quant = d3.scale.ordinal()
+                            .domain(domain)
+                            .range(range);
+    
+    let domain = []; // names of the legend boxes
+    let range = []; // colors of the legend boxes
+    for (let i = 0; i < redColor.length; i++) {
+
+    }
+
+    const legendQuant = d3.legend.color()
+                                    .title("Color Legend")
+                                    .labelFormat(d3.format('.0f'))
+                                    .scale(quant);
 }
 
 displayBaseMap();
