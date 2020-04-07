@@ -2,11 +2,14 @@ import csv
 import re
 import tweepy
 import string
+import pandas as pd
 
 
 def remove_control_chars(s):
     s1 = ''.join(filter(lambda x: x in string.printable, s))
     return re.sub(r'[^\w]', ' ', s1)
+
+cities_df = pd.read_csv(r'census_data/cleaned_il_data.csv')
 
 
 class Tweet:
@@ -36,6 +39,11 @@ class Tweet:
         return row
 
 
+# consumer_key = "YnnVhRE07letJqq5lwAjzhkkW"
+# consumer_secret = "CdqLlC1ALQHsiTsyuKCR1ZDcLQfLDmtFttA2AMoWtqCmX8pLuT"
+# access_token = "2879004436-4LKhCOuFYdPL4RTns26ZejiWc7si6aMf1LVX53j"
+# access_token_secret = "4ArzANk8q8lyodhBJTwT7S7dHYY0vjQHc4hcgeaNFp6mq"
+
 consumer_key = "SFcxwLBVF4YmVERD8YbFAbHVR"
 consumer_secret = "bAjMKe6BeEIQ9lH3JzJsJsRTRjkHQg9hHRgEB42Xdbjqfxv6Fz"
 access_token = "717755279488782336-w9RE9xptHI5rPFflQf4qy47ofqsJitO"
@@ -43,84 +51,76 @@ access_token_secret = "WgVxnf7ZaYPDqsPygjK6FCGwo9pw9w4nKdQeaoLAl6j85"
 
 auth = tweepy.auth.OAuthHandler(consumer_key, consumer_secret)
 auth.set_access_token(access_token, access_token_secret)
-api = tweepy.API(auth)
+api = tweepy.API(auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
 
 # process sanders tweets
-tweet_csv = open('tweets.csv', 'w')
+tweet_csv = open('tweets.csv', 'w', encoding='UTF-8', newline='')
 tweet_csvWriter = csv.writer(tweet_csv)
 tweet_csvWriter.writerow(['tweet_id', 'date', 'candidate', 'party', 'user_name', 'user_location', 'text', 'likes', 'latitude', 'longitude'])
-
+count = 0
 # use a radius that covers all of illinois, pull 100 most recent tweets
-for tweet in tweepy.Cursor(api.search, q="bernie sanders", geocode='40.049174,-88.858617,193mi', count=1000).items(
-        1000):
-    tweet_txt = remove_control_chars(tweet.text.lower())
-    name = remove_control_chars(tweet.user.name.lower())
-    user_loc = remove_control_chars(tweet.user.location.lower())
-    coords = True
-    if 'bernie' not in tweet_txt and 'sanders' not in tweet_txt:
+for tweet in tweepy.Cursor(api.search, q="bernie sanders", geocode='40.049174,-88.858617,193mi', count=10000).items(
+        10000):
+    tweet_txt = tweet.text
+    name = tweet.user.name
+    user_loc = ''
+    lat = 0
+    long = 0
+    if 'bernie' not in tweet_txt.lower() and 'sanders' not in tweet_txt.lower():
         continue
-    if tweet.coordinates is None:
-        coords = False
-    elif tweet.coordinates['coordinates'] is None or tweet.coordinates['type'] is not 'Point':
-        coords = False
-
-    if not coords:
-        tweet_obj = Tweet(tweet.id, tweet.created_at, None, None, name, tweet.favorite_count, "Democrat", "Sanders",
+    if tweet.place != None:
+        full_location = tweet.place.full_name
+        l = full_location.split()
+        if "IL" in l[1]:
+            res = cities_df[cities_df['city'] == tweet.place.name]
+            lat = res.iloc[0]['lat']
+            long = res.iloc[0]['lng']
+            user_loc = tweet.place.name
+            tweet_obj = Tweet(tweet.id, tweet.created_at, lat, long, name, tweet.favorite_count, "Democrat", "Sanders",
                           tweet_txt, user_loc)
-    else:
-        # print('lat', tweet.coordinates['coordinates'][1], 'long', tweet.coordinates['coordinates'][0])
-        tweet_obj = Tweet(tweet.id, tweet.created_at, tweet.coordinates['coordinates'][1],
-                          tweet.coordinates['coordinates'][0], name, tweet.favorite_count, "Democrat", "Sanders",
-                          tweet_txt, user_loc)
+            print("writing row, bernie ")
+            tweet_csvWriter.writerow(tweet_obj.format_csv_row())
 
-    tweet_csvWriter.writerow(tweet_obj.format_csv_row())
-
-for tweet in tweepy.Cursor(api.search, q="joe biden", geocode='40.049174,-88.858617,193mi', count=1000).items(1000):
-    tweet_txt = remove_control_chars(tweet.text.lower())
-    name = remove_control_chars(tweet.user.name.lower())
-    user_loc = remove_control_chars(tweet.user.location.lower())
-
-    coords = True
-    if 'joe' not in tweet_txt and 'biden' not in tweet_txt:
+for tweet in tweepy.Cursor(api.search, q="joe biden", geocode='40.049174,-88.858617,193mi', count=10000).items(
+        10000):
+    tweet_txt = tweet.text
+    name = tweet.user.name
+    user_loc = ''
+    lat = 0
+    long = 0
+    if 'joe' not in tweet_txt.lower() and 'biden' not in tweet_txt.lower():
         continue
-    if tweet.coordinates is None:
-        coords = False
-    elif tweet.coordinates['coordinates'] is None or tweet.coordinates['type'] is not 'Point':
-        coords = False
-
-
-    if not coords:
-        tweet_obj = Tweet(tweet.id, tweet.created_at, None, None, name, tweet.favorite_count, "Democrat", "Biden",
+    if tweet.place != None:
+        full_location = tweet.place.full_name
+        l = full_location.split()
+        if "IL" in l[1]:
+            res = cities_df[cities_df['city'] == tweet.place.name]
+            lat = res.iloc[0]['lat']
+            long = res.iloc[0]['lng']
+            user_loc = tweet.place.name
+            tweet_obj = Tweet(tweet.id, tweet.created_at, lat, long, name, tweet.favorite_count, "Democrat", "Biden",
                           tweet_txt, user_loc)
-    else:
-        # print('lat', tweet.coordinates['coordinates'][1], 'long', tweet.coordinates['coordinates'][0])
-        tweet_obj = Tweet(tweet.id, tweet.created_at, tweet.coordinates['coordinates'][1],
-                          tweet.coordinates['coordinates'][0], name, tweet.favorite_count, "Democrat", "Biden",
-                          tweet_txt, user_loc)
+            print("writing row, joe")
+            tweet_csvWriter.writerow(tweet_obj.format_csv_row())
 
-    tweet_csvWriter.writerow(tweet_obj.format_csv_row())
-
-for tweet in tweepy.Cursor(api.search, q="donald trump", geocode='40.049174,-88.858617,193mi', count=1000).items(1000):
-    tweet_txt = remove_control_chars(tweet.text.lower())
-    name = remove_control_chars(tweet.user.name.lower())
-    user_loc = remove_control_chars(tweet.user.location.lower())
-
-    coords = True
-    if 'donald' not in tweet_txt and 'trump' not in tweet_txt:
+for tweet in tweepy.Cursor(api.search, q="donald trump", geocode='40.049174,-88.858617,193mi', count=10000).items(
+        10000):
+    tweet_txt = tweet.text
+    name = tweet.user.name
+    user_loc = ''
+    lat = 0
+    long = 0
+    if 'donald' not in tweet_txt.lower() and 'trump' not in tweet_txt.lower():
         continue
-    if tweet.coordinates is None:
-        coords = False
-    elif tweet.coordinates['coordinates'] is None or tweet.coordinates['type'] is not 'Point':
-        coords = False
-
-    # def __init__(self, id, date, lat, long, name, likes, party, candidate, text, user_location):
-    if not coords:
-        tweet_obj = Tweet(tweet.id, tweet.created_at, None, None, name, tweet.favorite_count, "Republican", "Trump",
+    if tweet.place != None:
+        full_location = tweet.place.full_name
+        l = full_location.split()
+        if "IL" in l[1]:
+            res = cities_df[cities_df['city'] == tweet.place.name]
+            lat = res.iloc[0]['lat']
+            long = res.iloc[0]['lng']
+            user_loc = tweet.place.name
+            tweet_obj = Tweet(tweet.id, tweet.created_at, lat, long, name, tweet.favorite_count, "Republican", "Trump",
                           tweet_txt, user_loc)
-    else:
-        # print('lat', tweet.coordinates['coordinates'][1], 'long', tweet.coordinates['coordinates'][0])
-        tweet_obj = Tweet(tweet.id, tweet.created_at, tweet.coordinates['coordinates'][1],
-                          tweet.coordinates['coordinates'][0], name, tweet.favorite_count, "Republican", "Trump",
-                          tweet_txt, user_loc)
-
-    tweet_csvWriter.writerow(tweet_obj.format_csv_row())
+            print("writing row, trump")
+            tweet_csvWriter.writerow(tweet_obj.format_csv_row())
