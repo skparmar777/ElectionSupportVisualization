@@ -49,3 +49,5 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+
+sentiment_analysis/datascience.h5
