@@ -1,0 +1,2 @@
+tweet_id,date,candidate,party,user_name,user_location,text,sentiment,tokens,likes,latitude,longitude
+1247976511577169922,2020-04-08 19:56:01,Sanders,Democrat,Nicole Shih 石宜瑄,Chicago,Bernie Sanders Drops Out of 2020 Democratic Race for President https://t.co/ZQwpTgN3xx,-0.6695775359611831,"['drops', '2020', 'democratic', 'race', 'president']",1,41.8373,-87.6862
