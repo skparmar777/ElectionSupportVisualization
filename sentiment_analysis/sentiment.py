@@ -12,6 +12,8 @@ file = open("stop_words.txt", "r")
 stop_words = file.readlines()
 file.close()
 stop_words = [word.strip('\n') for word in stop_words]
+candidate_names = ['bernie', 'sanders', 'joe', 'biden', 'donald', 'trump']
+stop_words.extend(candidate_names)
 
 
 def text_to_sentiment(text):
@@ -21,9 +23,8 @@ def text_to_sentiment(text):
     if len(vectors) == 0:
         return "no valid words in text"
     predictions = model.predict_log_proba(vectors)
-    return np.mean(predictions[:, 1] - predictions[:, 0])
+    score = np.mean(predictions[:, 1] - predictions[:, 0])
+    return score, tokens
 
-
-print(text_to_sentiment('the of but'))
 print(text_to_sentiment("@peter I really love that shirt at #Macy. http://bet.ly//WjdiW4"))
 
