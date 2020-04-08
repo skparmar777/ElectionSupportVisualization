@@ -26,5 +26,5 @@ def text_to_sentiment(text):
     score = np.mean(predictions[:, 1] - predictions[:, 0])
     return score, tokens
 
-print(text_to_sentiment("@peter I really love that shirt at #Macy. http://bet.ly//WjdiW4"))
 
+print(text_to_sentiment("@peter I really love that shirt at #Macy. http://bet.ly//WjdiW4"))
