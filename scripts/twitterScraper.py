@@ -132,10 +132,14 @@ for tweet in tweepy.Cursor(api.search, q="joe biden", geocode='40.049174,-88.858
             lat = res.iloc[0]['lat']
             long = res.iloc[0]['lng']
             user_loc = tweet.place.name
+            sentiment_tokens = text_to_sentiment(tweet_txt)
+            if sentiment_tokens == "no valid words in text":
+                continue
             tweet_obj = Tweet(tweet.id, tweet.created_at, lat, long, name, tweet.favorite_count, "Democrat", "Biden",
-                          tweet_txt, user_loc)
+                          tweet_txt, sentiment_tokens[0], sentiment_tokens[1], user_loc)
             print("writing row, joe")
             tweet_csvWriter.writerow(tweet_obj.format_csv_row())
+            collection.insert_one(tweet_obj.format_json())
 
 for tweet in tweepy.Cursor(api.search, q="donald trump", geocode='40.049174,-88.858617,193mi', count=10000).items(
         10000):
@@ -154,7 +158,11 @@ for tweet in tweepy.Cursor(api.search, q="donald trump", geocode='40.049174,-88.
             lat = res.iloc[0]['lat']
             long = res.iloc[0]['lng']
             user_loc = tweet.place.name
+            sentiment_tokens = text_to_sentiment(tweet_txt)
+            if sentiment_tokens == "no valid words in text":
+                continue
             tweet_obj = Tweet(tweet.id, tweet.created_at, lat, long, name, tweet.favorite_count, "Republican", "Trump",
-                          tweet_txt, user_loc)
+                          tweet_txt, sentiment_tokens[0], sentiment_tokens[1],user_loc)
             print("writing row, trump")
             tweet_csvWriter.writerow(tweet_obj.format_csv_row())
+            collection.insert_one(tweet_obj.format_json())
