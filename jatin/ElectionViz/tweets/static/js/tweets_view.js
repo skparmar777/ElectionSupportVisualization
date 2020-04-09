@@ -65,7 +65,7 @@ $(document).ready(function() {
         $("#select2_candidate_picker").append('<option value="Democrat">' + republican_candidates[i] + '</option>');
     }
 
-    $('#select2_candidate_picker').select2({ width: '100%' });
+    $('#select2_candidate_picker').select2({ width: '100%', maximumSelectionLength: 4 });
     $('#select2_candidate_picker').on("change", function(e) { 
         // callback
         updateCandidates();
