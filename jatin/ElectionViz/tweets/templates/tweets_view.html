@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+
+{% load staticfiles %}
+
+<head>
+
+    <!-- loads version 3 of the d3.js library -->
+    <script src="https://d3js.org/d3.v3.min.js"></script>
+    <script src = "https://cdnjs.cloudflare.com/ajax/libs/d3-legend/1.13.0/d3-legend.min.js"></script>
+
+    <!-- bootstrap stuff -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+
+    <!-- date picker library -->
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/momentjs/latest/moment.min.js"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css" />
+
+    <!-- select2 library -->
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/css/select2.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/js/select2.min.js"></script>
+
+    <!-- font awesome -->
+    <script src="https://kit.fontawesome.com/52b21dbc54.js"></script>
+
+    <!-- current commented out because it is not necessary, but in the future I could have the need for a stylesheet -->
+    <link rel='stylesheet' href="{% static 'css/tweets_view.css' %}" type='text/css'/>
+
+    <!-- API for tweets data, makes code more manageable -->
+    <script type="text/javascript" src="{% static 'js/tweets_interface.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/coloring.js' %}"></script>
+
+    <!-- initializes global variables in JS -->
+    <script>
+        let SETUP = 1; // 1 until basics are run for the first time
+        let METRIC = 'num_tweets'; // num_tweets or total_likes
+        const POLARITY = 'combined';
+        let TWEET_DATA = JSON.parse('{{ data }}'.replace(/&quot;/g,'"'));
+        const MAP_DATA = JSON.parse('{{ map_json }}'.replace(/&quot;/g,'"'));
+        const TWEETS_INTERFACE = new TweetsInterface(TWEET_DATA);
+        let DEMOCRAT_CANDIDATES = JSON.parse('{{ democrat_candidates }}'.replace(/&quot;/g,'"'));
+        let REPUBLICAN_CANDIDATES = JSON.parse('{{ republican_candidates }}'.replace(/&quot;/g,'"'));
+    </script>
+</head>
+
+<body>
+     <!-- initializes the SVG element -->
+     <div class='svg-container'>
+        <svg></svg>
+    </div>
+
+    <!-- metric chooser  -->
+    <div class="dropdown">
+        <button class="btn btn-secondary dropdown-toggle" type="button" id="tweet_vs_likes_button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+            Tweets
+        </button>
+        <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+            <a class="dropdown-item" onclick="METRIC = 'num_tweets'; colorMap(); renameDropdown();">Tweets</a>
+            <a class="dropdown-item" onclick="METRIC = 'total_likes'; colorMap(); renameDropdown();">Likes</a>
+            <a class="dropdown-item" onclick="METRIC = 'avg_sentiment'; colorMap(); renameDropdown();">Average Sentiment</a>
+        </div>
+    </div>
+
+    <!-- initialize the date range picker -->
+    <div class="date_range_picker">
+        <div id="reportrange" style="background: #fff; cursor: pointer; padding: 5px 10px; border: 1px solid #ccc; width: 100%">
+            <i class="fa fa-calendar"></i>&nbsp;
+            <span></span> <i class="fa fa-caret-down"></i>
+        </div>
+    </div>
+
+    <script>
+        // date range setup
+        $(function() {
+            var start = moment().subtract(6, 'days');
+            var end = moment();
+
+            function callback(start, end) {
+                $('#reportrange span').html(start.format('MMMM D, YYYY') + ' - ' + end.format('MMMM D, YYYY'));
+                if (SETUP != 1) {
+                    // POST request with new payload
+                    var xhttp = new XMLHttpRequest();
+                    const params = "daterange=" + $('#reportrange span').text();
+                    xhttp.onreadystatechange = function() {
+                        if (xhttp.readyState === 4 && xhttp.status === 200) {
+                            // render the new data
+                            TWEET_DATA = JSON.parse(xhttp.responseText);
+                            TWEETS_INTERFACE.set_data(TWEET_DATA);
+                            colorMap();
+                        }
+                    };
+                    xhttp.open("POST", window.location.href, false);
+                    xhttp.send(params);
+                }
+                SETUP = 0;
+            }
+
+            $('#reportrange').daterangepicker({
+                startDate: start,
+                endDate: end,
+                ranges: {
+                'Today': [moment(), moment()],
+                'Yesterday': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
+                'Last 7 Days': [moment().subtract(6, 'days'), moment()],
+                }
+            }, callback);
+
+            callback(start, end);
+        });
+    </script>
+
+    <!-- initialize the candidate picker -->
+    <div class="candidate_picker">
+        <select id="select2_candidate_picker" name="candidates[]" multiple="multiple">
+            <!-- <option> dynamically added based on candidates -->
+        </select>
+    </div>
+
+    <script>
+        // select2 library
+        $(document).ready(function() {
+            // add all candidates
+            for (let i = 0; i < DEMOCRAT_CANDIDATES.length; i++) {
+                $("#select2_candidate_picker").append('<option value="Democrat">' + DEMOCRAT_CANDIDATES[i] + '</option>');
+            }
+            for (let i = 0; i < REPUBLICAN_CANDIDATES.length; i++) {
+                $("#select2_candidate_picker").append('<option value="Democrat">' + REPUBLICAN_CANDIDATES[i] + '</option>');
+            }
+
+            $('#select2_candidate_picker').select2({ width: '100%', maximumSelectionLength: 4 });
+            $('#select2_candidate_picker').on("change", function(e) { 
+                // callback
+                updateCandidates();
+            });
+        });
+    </script>
+
+</body>
+
+<!-- the visualization script -->
+<script type="text/javascript" src="{% static 'js/tweets_view.js' %}"></script>
+

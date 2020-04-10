@@ -1,4 +1,11 @@
+# ours
 .idea/
+.vscode
+.DS_Store
+*.json
+.ipynb_checkpoints/
+jatin/data
+migrations
 
 # dotenv
 .env

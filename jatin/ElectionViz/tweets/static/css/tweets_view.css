@@ -1,0 +1,36 @@
+div.hover-text {
+    position: absolute;
+    text-align: center;
+    padding: .5rem;
+    background: #FFFFFF;
+    color: #313639;
+    border: 1px solid #708090;
+    border-radius: 8px;
+    pointer-events: none;
+    font-size: 1rem;
+    white-space: pre-line;
+}
+
+.dropdown {
+    position: absolute;
+    left: 100px;
+    top: 100px;
+}
+
+#tweet_vs_likes_button {
+    width: 150px !important;
+}
+
+.date_range_picker {
+    position: absolute;
+    left: 100px;
+    top: 200px;
+}
+
+.candidate_picker {
+    position: absolute;
+    left: 100px;
+    top: 300px;
+    width: 300px;
+}
+

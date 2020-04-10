@@ -1,7 +1,9 @@
+
+geopandas
+django==3.0.4
 pymongo==3.10.1
 numpy==1.17.3
 tweepy==3.8.0
-Django==2.2.4
 wordcloud==1.6.0
 pandas==1.0.3
 Pillow==7.1.1
