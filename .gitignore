@@ -9,6 +9,7 @@ migrations
 
 # dotenv
 .env
+scripts/.env
 
 # virtualenv
 .venv
@@ -56,3 +57,6 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+
+sentiment_analysis/datascience.h5
+scripts/datascience.h5
