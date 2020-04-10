@@ -1,7 +1,17 @@
+# ours
 .idea/
+.vscode
+.DS_Store
+*.json
+.ipynb_checkpoints/
+jatin/data
+migrations
+*.h5
+webApp/data/*
 
 # dotenv
 .env
+scripts/.env
 
 # virtualenv
 .venv
@@ -51,3 +61,4 @@ wheels/
 *.egg
 
 sentiment_analysis/datascience.h5
+scripts/datascience.h5

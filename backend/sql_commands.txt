@@ -1,0 +1,121 @@
+docker pull mcr.microsoft.com/mssql/server:2017-latest
+
+sudo docker run -e "ACCEPT_EULA=Y" -e "SA_PASSWORD=<YourStrong@Passw0rd>" \
+   -p 1433:1433 --name cs411proj \
+   -d mcr.microsoft.com/mssql/server:2017-latest
+
+sudo docker exec -it cs411proj /opt/mssql-tools/bin/sqlcmd \
+   -S localhost -U SA -P "<YourStrong@Passw0rd>" \
+   -Q 'ALTER LOGIN SA WITH PASSWORD="CS411proj"'
+
+CREATE DATABASE CS411Proj
+
+CREATE TABLE tweets (
+    tweet_id INT IDENTITY(1,1) PRIMARY KEY,
+    tweet_date DATETIME,
+    party CHAR(100),
+    candidate CHAR(100),
+    district INT,
+    username VARCHAR(256),
+    likes INT,
+    tweet_text CHAR(560),
+    sentiment FLOAT,
+    polarity CHAR(1)
+);
+
+CREATE TABLE tweets_archive (
+    week_start DATE,
+    party CHAR(100),
+    candidate CHAR(100),
+    district INT,
+    num_tweets INT,
+    total_likes INT,
+    avg_sentiment FLOAT,
+    polarity CHAR(1),
+    username VARCHAR(256),
+    likes INT,
+    tweet_text CHAR(560),
+    sentiment FLOAT,
+    PRIMARY KEY (week_start, party, candidate, district, polarity)
+);
+
+CREATE PROCEDURE keep_only_last_week
+AS
+    DECLARE @current_time DATETIME = GETDATE();
+    DECLARE @cutoff DATE = CAST(CAST(CAST(@current_time AS FLOAT) - 6 AS DATETIME) AS DATE);
+
+    INSERT INTO tweets_archive
+    SELECT res.week_start, res.party, res.candidate, res.district, res.num_tweets, res.total_likes, res.average_sentiment, res.polarity, res.username, res.likes, res.tweet_text, res.sentiment
+    FROM 
+        -- additional subquery needed to filter out the case where two tweets both had max likes, this chooses one of them
+        (SELECT
+            ROW_NUMBER() OVER(PARTITION BY subq.week_start, subq.district, subq.party, subq.candidate ORDER BY subq.week_start, subq.district, subq.party, subq.candidate) AS row_num,
+            subq.week_start, subq.party, subq.candidate, subq.district, subq.polarity, subq.num_tweets, subq.total_likes, subq.average_sentiment, tweets.tweet_text, tweets.username, tweets.sentiment, tweets.likes
+        FROM
+            (SELECT CAST(DATEADD(wk, DATEDIFF(wk, 6, tweets.tweet_date), 7) AS DATE) as week_start, tweets.party, tweets.candidate, tweets.district, tweets.polarity, COUNT(*) as num_tweets, SUM(tweets.likes) as total_likes, AVG(tweets.sentiment) as average_sentiment, MAX(tweets.likes) as most_liked_likes
+            FROM tweets
+            WHERE tweets.tweet_date < @cutoff
+            GROUP BY tweets.district, tweets.party, tweets.candidate, CAST(DATEADD(wk, DATEDIFF(wk, 6, tweets.tweet_date), 7) AS DATE), tweets.polarity) subq, tweets
+        WHERE tweets.party = subq.party
+        AND tweets.district = subq.district
+        AND tweets.polarity = subq.polarity
+        AND tweets.likes = subq.most_liked_likes
+        AND tweets.tweet_date < @cutoff) res
+    WHERE res.row_num = 1;
+
+    DELETE FROM tweets
+    WHERE tweets.tweet_date < @cutoff;
+GO
+
+To call it, run:
+    EXEC dbo.keep_only_last_week
+
+CREATE TRIGGER merge_incoming_data
+ON tweets_archive
+INSTEAD OF INSERT
+AS
+
+IF (
+    (SELECT COUNT(*)
+    FROM tweets_archive, inserted
+    WHERE tweets_archive.week_start = inserted.week_start
+    AND tweets_archive.party = inserted.party
+    AND tweets_archive.candidate = inserted.candidate
+    AND tweets_archive.district = inserted.district
+    AND tweets_archive.polarity = inserted.polarity
+    ) 
+    = 0)
+    
+    -- all good
+    INSERT INTO tweets_archive
+    SELECT * FROM inserted;
+
+ELSE 
+    -- we need to update some rows
+    UPDATE tweets_archive
+    SET tweets_archive.num_tweets += inserted.num_tweets, tweets_archive.total_likes += inserted.total_likes, tweets_archive.avg_sentiment = (tweets_archive.avg_sentiment * tweets_archive.num_tweets + inserted.avg_sentiment * inserted.num_tweets ) / (tweets_archive.num_tweets + inserted.num_tweets)
+    FROM inserted
+    WHERE tweets_archive.week_start = inserted.week_start
+    AND tweets_archive.party = inserted.party
+    AND tweets_archive.candidate = inserted.candidate
+    AND tweets_archive.district = inserted.district
+    AND tweets_archive.polarity = inserted.polarity;
+
+    UPDATE tweets_archive
+    SET tweets_archive.username = res.username, tweets_archive.likes = res.likes, tweets_archive.tweet_text = res.tweet_text, tweets_archive.sentiment = res.sentiment
+    FROM
+        (SELECT inserted.week_start, inserted.party, inserted.candidate, inserted.district, inserted.polarity, inserted.tweet_text, inserted.likes, inserted.username, inserted.avg_sentiment, inserted.sentiment
+        FROM tweets_archive, inserted
+        WHERE tweets_archive.week_start = inserted.week_start
+        AND tweets_archive.party = inserted.party
+        AND tweets_archive.candidate = inserted.candidate
+        AND tweets_archive.district = inserted.district
+        AND tweets_archive.polarity = inserted.polarity
+        AND tweets_archive.likes < inserted.likes) res
+    WHERE tweets_archive.week_start = res.week_start
+    AND tweets_archive.party = res.party
+    AND tweets_archive.candidate = res.candidate
+    AND tweets_archive.district = res.district
+    AND tweets_archive.polarity = res.polarity;
+
+
