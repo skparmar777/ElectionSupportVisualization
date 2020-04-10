@@ -13,27 +13,30 @@ CREATE DATABASE CS411Proj
 CREATE TABLE tweets (
     tweet_id INT IDENTITY(1,1) PRIMARY KEY,
     tweet_date DATETIME,
-    district INT,
-    first_name CHAR(100),
-    last_name CHAR(100),
-    likes INT,
     party CHAR(100),
     candidate CHAR(100),
-    tweet_text CHAR(560)
+    district INT,
+    username VARCHAR(256),
+    likes INT,
+    tweet_text CHAR(560),
+    sentiment FLOAT,
+    polarity CHAR(1)
 );
 
 CREATE TABLE tweets_archive (
     week_start DATE,
-    district INT,
     party CHAR(100),
     candidate CHAR(100),
+    district INT,
     num_tweets INT,
     total_likes INT,
-    most_liked_tweet CHAR(560),
+    avg_sentiment FLOAT,
+    polarity CHAR(1),
+    username VARCHAR(256),
     likes INT,
-    first_name CHAR(100),
-    last_name CHAR(100),
-    PRIMARY KEY (week_start, district, party, candidate)
+    tweet_text CHAR(560),
+    sentiment FLOAT,
+    PRIMARY KEY (week_start, party, candidate, district, polarity)
 );
 
 CREATE PROCEDURE keep_only_last_week
@@ -42,20 +45,21 @@ AS
     DECLARE @cutoff DATE = CAST(CAST(CAST(@current_time AS FLOAT) - 6 AS DATETIME) AS DATE);
 
     INSERT INTO tweets_archive
-    SELECT res.week_start, res.district, res.party, res.candidate, res.num_tweets, res.total_likes, res.tweet_text, res.max_likes, res.first_name, res.last_name
+    SELECT res.week_start, res.party, res.candidate, res.district, res.num_tweets, res.total_likes, res.average_sentiment, res.polarity, res.username, res.likes, res.tweet_text, res.sentiment
     FROM 
         -- additional subquery needed to filter out the case where two tweets both had max likes, this chooses one of them
         (SELECT
             ROW_NUMBER() OVER(PARTITION BY subq.week_start, subq.district, subq.party, subq.candidate ORDER BY subq.week_start, subq.district, subq.party, subq.candidate) AS row_num,
-            subq.week_start, subq.district, subq.party, subq.candidate, subq.num_tweets, subq.total_likes, tweets.tweet_text, subq.max_likes, tweets.first_name, tweets.last_name
+            subq.week_start, subq.party, subq.candidate, subq.district, subq.polarity, subq.num_tweets, subq.total_likes, subq.average_sentiment, tweets.tweet_text, tweets.username, tweets.sentiment, tweets.likes
         FROM
-            (SELECT CAST(DATEADD(wk, DATEDIFF(wk, 6, tweets.tweet_date), 0) AS DATE) as week_start, tweets.district, tweets.party, tweets.candidate, COUNT(*) as num_tweets, SUM(tweets.likes) as total_likes, MAX(tweets.likes) as max_likes
+            (SELECT CAST(DATEADD(wk, DATEDIFF(wk, 6, tweets.tweet_date), 7) AS DATE) as week_start, tweets.party, tweets.candidate, tweets.district, tweets.polarity, COUNT(*) as num_tweets, SUM(tweets.likes) as total_likes, AVG(tweets.sentiment) as average_sentiment, MAX(tweets.likes) as most_liked_likes
             FROM tweets
             WHERE tweets.tweet_date < @cutoff
-            GROUP BY tweets.district, tweets.party, tweets.candidate, CAST(DATEADD(wk, DATEDIFF(wk, 6, tweets.tweet_date), 0) AS DATE)) subq, tweets
-        WHERE tweets.district = subq.district
-        AND tweets.party = subq.party
-        AND tweets.likes = subq.max_likes
+            GROUP BY tweets.district, tweets.party, tweets.candidate, CAST(DATEADD(wk, DATEDIFF(wk, 6, tweets.tweet_date), 7) AS DATE), tweets.polarity) subq, tweets
+        WHERE tweets.party = subq.party
+        AND tweets.district = subq.district
+        AND tweets.polarity = subq.polarity
+        AND tweets.likes = subq.most_liked_likes
         AND tweets.tweet_date < @cutoff) res
     WHERE res.row_num = 1;
 
@@ -75,9 +79,11 @@ IF (
     (SELECT COUNT(*)
     FROM tweets_archive, inserted
     WHERE tweets_archive.week_start = inserted.week_start
-    AND tweets_archive.district = inserted.district
     AND tweets_archive.party = inserted.party
-    AND tweets_archive.candidate = inserted.candidate) 
+    AND tweets_archive.candidate = inserted.candidate
+    AND tweets_archive.district = inserted.district
+    AND tweets_archive.polarity = inserted.polarity
+    ) 
     = 0)
     
     -- all good
@@ -87,25 +93,29 @@ IF (
 ELSE 
     -- we need to update some rows
     UPDATE tweets_archive
-    SET tweets_archive.num_tweets += inserted.num_tweets, tweets_archive.total_likes += inserted.total_likes
+    SET tweets_archive.num_tweets += inserted.num_tweets, tweets_archive.total_likes += inserted.total_likes, tweets_archive.avg_sentiment = (tweets_archive.avg_sentiment * tweets_archive.num_tweets + inserted.avg_sentiment * inserted.num_tweets ) / (tweets_archive.num_tweets + inserted.num_tweets)
     FROM inserted
     WHERE tweets_archive.week_start = inserted.week_start
-    AND tweets_archive.district = inserted.district
     AND tweets_archive.party = inserted.party
-    AND tweets_archive.candidate = inserted.candidate;
+    AND tweets_archive.candidate = inserted.candidate
+    AND tweets_archive.district = inserted.district
+    AND tweets_archive.polarity = inserted.polarity;
 
     UPDATE tweets_archive
-    SET tweets_archive.most_liked_tweet = res.most_liked_tweet, tweets_archive.likes = res.likes, tweets_archive.first_name = res.first_name, tweets_archive.last_name = res.last_name
+    SET tweets_archive.username = res.username, tweets_archive.likes = res.likes, tweets_archive.tweet_text = res.tweet_text, tweets_archive.sentiment = res.sentiment
     FROM
-        (SELECT inserted.week_start, inserted.district, inserted.party, inserted.candidate, inserted.most_liked_tweet, inserted.likes, inserted.first_name, inserted.last_name
+        (SELECT inserted.week_start, inserted.party, inserted.candidate, inserted.district, inserted.polarity, inserted.tweet_text, inserted.likes, inserted.username, inserted.avg_sentiment, inserted.sentiment
         FROM tweets_archive, inserted
         WHERE tweets_archive.week_start = inserted.week_start
-        AND tweets_archive.district = inserted.district
         AND tweets_archive.party = inserted.party
         AND tweets_archive.candidate = inserted.candidate
+        AND tweets_archive.district = inserted.district
+        AND tweets_archive.polarity = inserted.polarity
         AND tweets_archive.likes < inserted.likes) res
     WHERE tweets_archive.week_start = res.week_start
+    AND tweets_archive.party = res.party
+    AND tweets_archive.candidate = res.candidate
     AND tweets_archive.district = res.district
-    and tweets_archive.candidate = res.candidate;
+    AND tweets_archive.polarity = res.polarity;
 
 

@@ -30,14 +30,20 @@
     <!-- current commented out because it is not necessary, but in the future I could have the need for a stylesheet -->
     <link rel='stylesheet' href="{% static 'css/tweets_view.css' %}" type='text/css'/>
 
+    <!-- API for tweets data, makes code more manageable -->
+    <script type="text/javascript" src="{% static 'js/tweets_interface.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/coloring.js' %}"></script>
+
     <!-- initializes global variables in JS -->
     <script>
-        let setup = 1; // 1 until basics are run for the first time
-        let metric = 'num_tweets'; // num_tweets or total_likes
-        let tweetData = JSON.parse('{{ data }}'.replace(/&quot;/g,'"'));
-        const mapData = JSON.parse('{{ map_json }}'.replace(/&quot;/g,'"'));
-        let democrat_candidates = JSON.parse('{{ democrat_candidates }}'.replace(/&quot;/g,'"'));
-        let republican_candidates = JSON.parse('{{ republican_candidates }}'.replace(/&quot;/g,'"'));
+        let SETUP = 1; // 1 until basics are run for the first time
+        let METRIC = 'num_tweets'; // num_tweets or total_likes
+        const POLARITY = 'combined';
+        let TWEET_DATA = JSON.parse('{{ data }}'.replace(/&quot;/g,'"'));
+        const MAP_DATA = JSON.parse('{{ map_json }}'.replace(/&quot;/g,'"'));
+        const TWEETS_INTERFACE = new TweetsInterface(TWEET_DATA);
+        let DEMOCRAT_CANDIDATES = JSON.parse('{{ democrat_candidates }}'.replace(/&quot;/g,'"'));
+        let REPUBLICAN_CANDIDATES = JSON.parse('{{ republican_candidates }}'.replace(/&quot;/g,'"'));
     </script>
 </head>
 
@@ -53,8 +59,9 @@
             Tweets
         </button>
         <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
-            <a class="dropdown-item" onclick="metric = 'num_tweets'; colorMap(); renameDropdown();">Tweets</a>
-            <a class="dropdown-item" onclick="metric = 'total_likes'; colorMap(); renameDropdown();">Likes</a>
+            <a class="dropdown-item" onclick="METRIC = 'num_tweets'; colorMap(); renameDropdown();">Tweets</a>
+            <a class="dropdown-item" onclick="METRIC = 'total_likes'; colorMap(); renameDropdown();">Likes</a>
+            <a class="dropdown-item" onclick="METRIC = 'avg_sentiment'; colorMap(); renameDropdown();">Average Sentiment</a>
         </div>
     </div>
 
@@ -66,12 +73,71 @@
         </div>
     </div>
 
+    <script>
+        // date range setup
+        $(function() {
+            var start = moment().subtract(6, 'days');
+            var end = moment();
+
+            function callback(start, end) {
+                $('#reportrange span').html(start.format('MMMM D, YYYY') + ' - ' + end.format('MMMM D, YYYY'));
+                if (SETUP != 1) {
+                    // POST request with new payload
+                    var xhttp = new XMLHttpRequest();
+                    const params = "daterange=" + $('#reportrange span').text();
+                    xhttp.onreadystatechange = function() {
+                        if (xhttp.readyState === 4 && xhttp.status === 200) {
+                            // render the new data
+                            TWEET_DATA = JSON.parse(xhttp.responseText);
+                            TWEETS_INTERFACE.set_data(TWEET_DATA);
+                            colorMap();
+                        }
+                    };
+                    xhttp.open("POST", window.location.href, false);
+                    xhttp.send(params);
+                }
+                SETUP = 0;
+            }
+
+            $('#reportrange').daterangepicker({
+                startDate: start,
+                endDate: end,
+                ranges: {
+                'Today': [moment(), moment()],
+                'Yesterday': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
+                'Last 7 Days': [moment().subtract(6, 'days'), moment()],
+                }
+            }, callback);
+
+            callback(start, end);
+        });
+    </script>
+
     <!-- initialize the candidate picker -->
     <div class="candidate_picker">
         <select id="select2_candidate_picker" name="candidates[]" multiple="multiple">
             <!-- <option> dynamically added based on candidates -->
         </select>
     </div>
+
+    <script>
+        // select2 library
+        $(document).ready(function() {
+            // add all candidates
+            for (let i = 0; i < DEMOCRAT_CANDIDATES.length; i++) {
+                $("#select2_candidate_picker").append('<option value="Democrat">' + DEMOCRAT_CANDIDATES[i] + '</option>');
+            }
+            for (let i = 0; i < REPUBLICAN_CANDIDATES.length; i++) {
+                $("#select2_candidate_picker").append('<option value="Democrat">' + REPUBLICAN_CANDIDATES[i] + '</option>');
+            }
+
+            $('#select2_candidate_picker').select2({ width: '100%', maximumSelectionLength: 4 });
+            $('#select2_candidate_picker').on("change", function(e) { 
+                // callback
+                updateCandidates();
+            });
+        });
+    </script>
 
 </body>
 

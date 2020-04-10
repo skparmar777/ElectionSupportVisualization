@@ -24,22 +24,15 @@ FAKE_TWEETS = [
     ('Bernie is the G!', 'Bernie', 'Democrat'),
 ]
 
-FAKE_FIRST_NAMES = [
-    'Jatin',
-    'Sejal',
-    'Soham',
-    'Don',
-    'Adam',
-    'Sara',
-    'Madeline'
-]
-
-FAKE_LAST_NAMES = [
-    'Smith',
-    'Anderson',
-    'Jollyrancher',
-    'Goldstein',
-    'Halloway'
+FAKE_USERNAMES = [
+    'justin_math_nerd',
+    'sejal_hedge_fund_manager',
+    'soham_likes_big_data',
+    'noice',
+    'yippeeXD999',
+    'wuuut',
+    'who.dat',
+    'abduuu'
 ]
 
 CUR_TIME = datetime.now(pytz.utc) # all times in UTC
@@ -57,8 +50,7 @@ def select_random(l):
 def generate_random_tweet():
     # same format as create_sql_query
     tweet, candidate, party = select_random(FAKE_TWEETS)
-    first = select_random(FAKE_FIRST_NAMES)
-    last = select_random(FAKE_LAST_NAMES)
+    username = select_random(FAKE_USERNAMES)
     district = random.randint(1, 18)
 
     delta = CUR_TIME - START_TIME
@@ -70,7 +62,12 @@ def generate_random_tweet():
     while (likes < 0):
         likes = int(random.gauss(50, 100))
 
-    return [tweet_date, district, first, last, likes, party, candidate, tweet]
+    sentiment = random.gauss(0.1, 0.5) # slight positive
+    while sentiment > 1 or sentiment < -1:
+        sentiment = random.gauss(0.1, 0.5)
+    polarity = 'P' if sentiment >= 0 else 'N'
+
+    return [tweet_date, party, candidate, district, username, likes, tweet, sentiment, polarity]
 
 def format_string(string):
     return "'" + string + "'"
@@ -79,21 +76,23 @@ def generate_and_push_tweets(num_fake_tweets):
     '''
     format:
     tweet_date DATETIME ('YYYY-MM-DD HH:MM:SS'),
-    district INT,
-    first_name CHAR(100),
-    last_name CHAR(100),
-    likes INT,
     party CHAR(100),
     candidate CHAR(100),
-    tweet_text CHAR(560)
+    district INT,
+    username VARCHAR(256),
+    likes INT,
+    tweet_text CHAR(560),
+    sentiment FLOAT
     '''
     for _ in range(num_fake_tweets):
         nt = generate_random_tweet()
         Tweets(tweet_date = nt[0],
-                district = nt[1],
-                first_name = nt[2],
-                last_name = nt[3],
-                likes = nt[4],
-                party = nt[5],
-                candidate = nt[6],
-                tweet_text = nt[7]).save()
+                party = nt[1],
+                candidate = nt[2],
+                district = nt[3],
+                username = nt[4],
+                likes = nt[5],
+                tweet_text = nt[6],
+                sentiment = nt[7],
+                polarity = nt[8],
+                ).save()

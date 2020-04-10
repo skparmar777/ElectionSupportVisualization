@@ -6,22 +6,50 @@ from datetime import datetime, timedelta
 from datetime import timezone
 import json
 
+from .data_utils import TweetsData, Candidate, CandidatePolarity, Party
 from .models import Tweets, TweetsArchive
 import numpy as np
 
-import pprint
+NUM_DISTRICTS = 18
 
-BASE_QUERY = "SELECT tweets.tweet_id, tweets.district, tweets.party, tweets.candidate, T1.total_likes, T1.num_tweets, tweets.first_name, tweets.last_name, T1.max_likes, tweets.tweet_text, tweets.tweet_date \
+# I tried using the Django ORM but the query I want I just could not find anywhere
+BASE_QUERY = "SELECT tweets.tweet_id, tweets.tweet_date, tweets.district, tweets.party, tweets.candidate, tweets.polarity, T1.total_likes, T1.num_tweets, T1.avg_sentiment, tweets.username, T1.max_likes, tweets.tweet_text, tweets.sentiment \
             FROM \
-                (SELECT tweets.district, tweets.party, tweets.candidate, SUM(tweets.likes) as total_likes, COUNT(*) as num_tweets, MAX(tweets.likes) as max_likes \
+                (SELECT tweets.district, tweets.party, tweets.candidate, tweets.polarity, SUM(tweets.likes) as total_likes, COUNT(*) as num_tweets, MAX(tweets.likes) as max_likes, AVG(tweets.sentiment) AS avg_sentiment \
                 FROM tweets \
-                GROUP BY tweets.district, tweets.party, tweets.candidate) T1, tweets \
+                GROUP BY tweets.district, tweets.party, tweets.candidate, tweets.polarity) T1, tweets \
             WHERE tweets.district = T1.district \
             AND tweets.party = T1.party \
             AND tweets.candidate = T1.candidate \
-            AND tweets.likes = T1.max_likes"
+            AND tweets.polarity = T1.polarity \
+            AND tweets.likes = T1.max_likes "
+    
 
-NUM_DISTRICTS = 18
+def get_tweets_query(start, end):
+    query = "SELECT tweets.tweet_id, tweets.tweet_date, tweets.district, tweets.party, tweets.candidate, tweets.polarity, T1.total_likes, T1.num_tweets, T1.avg_sentiment, \
+            tweets.username, T1.max_likes, tweets.tweet_text, tweets.sentiment \
+            FROM \
+                (SELECT tweets.district, tweets.party, tweets.candidate, tweets.polarity, SUM(tweets.likes) as total_likes, COUNT(*) as num_tweets, MAX(tweets.likes) as max_likes, AVG(tweets.sentiment) AS avg_sentiment \
+                FROM tweets \
+                WHERE tweets.tweet_date BETWEEN '{}' AND '{}' \
+                GROUP BY tweets.district, tweets.party, tweets.candidate, tweets.polarity) T1, tweets \
+            WHERE tweets.district = T1.district \
+            AND tweets.party = T1.party \
+            AND tweets.candidate = T1.candidate \
+            AND tweets.polarity = T1.polarity \
+            AND tweets.likes = T1.max_likes".format(start.strftime('%Y-%m-%d %H:%M:%S'), end.strftime('%Y-%m-%d %H:%M:%S'))
+    return query
+
+def get_tweets_archive_query(start, end):
+    start = get_previous_monday(start) if start.weekday() != 0 else start # if not already a monday
+    query = "SELECT tweets_archive.week_start, tweets_archive.week_start as tweet_date, tweets_archive.district, tweets_archive.party, tweets_archive.candidate, \
+            tweets_archive.polarity, tweets_archive.total_likes, tweets_archive.num_tweets, tweets_archive.avg_sentiment, \
+            tweets_archive.username, tweets_archive.likes, tweets_archive.tweet_text as tweet_text, tweets_archive.sentiment \
+            FROM tweets_archive \
+            WHERE tweets_archive.week_start \
+            BETWEEN '{}' AND '{}'".format(start.strftime('%Y-%m-%d %H:%M:%S'), end.strftime('%Y-%m-%d %H:%M:%S'))
+    print(query)
+    return query
 
 def get_previous_monday(dt):
     return dt + timedelta(days=-dt.weekday(), hours=-dt.hour, minutes=-dt.minute, seconds=-dt.second, microseconds=-dt.microsecond)
@@ -29,49 +57,23 @@ def get_previous_monday(dt):
 def get_tweets_cutoff(dt):
     return dt + timedelta(days=-6, hours=-dt.hour, minutes=-dt.minute, seconds=-dt.second, microseconds=-dt.microsecond)
 
-def is_in_current_week(start, end):
-    last_monday = get_previous_monday(datetime.utcnow())
-    return start >= last_monday
+def is_within_one_week_ago(start, end):
+    now = datetime.utcnow()
+    one_week_ago = now + timedelta(days=-7, hours = -now.hour, minutes = -now.minute, seconds = -now.second, microseconds = -now.microsecond)
+    return start >= one_week_ago
 
 def is_before_current_week(start, end):
     cutoff = get_tweets_cutoff(datetime.utcnow())
     return end < cutoff
 
-def get_data_as_dict(res_item):
-    cur = {}
-    cur['total_likes'] = res_item.total_likes
-    cur['num_tweets'] = res_item.num_tweets
-    cur['max_likes'] = res_item.max_likes
-    cur['tweet_text'] = res_item.tweet_text.strip()
-    cur['first_name'] = res_item.first_name.strip()
-    cur['last_name'] = res_item.last_name.strip()
-    dt = res_item.tweet_date
-    cur['tweet_date'] = dt.strftime('%B %d at %H:%M') # ex: March 21 at 18:13
-    return cur
-
-def merge_candidate_dicts(d1, d2):
+def process_results(qset, date_descriptor, asdict=True):
     '''
-    Merges data of two dicts of the same candidate from different weeks
-    '''
-    ret = {}
-    ret['total_likes'] = d1['total_likes'] + d2['total_likes']
-    ret['num_tweets'] = d1['num_tweets'] + d2['num_tweets']
-    max_dict = d1 if d1['max_likes'] > d2['max_likes'] else d2
-    ret['max_likes'] = max_dict['max_likes']
-    ret['tweet_text'] = max_dict['tweet_text']
-    ret['first_name'] = max_dict['first_name']
-    ret['last_name'] = max_dict['last_name']
-    ret['tweet_date'] = max_dict['tweet_date']
-    ret['date_descriptor'] = max_dict['date_descriptor']
-    return ret
+    qset: queryset from Tweets or TweetsArchive
+    date_descriptor: whether date is 'exact' or 'weekly'
 
-def serialize_results(res, descriptor):
-    '''
-    res: queryset from Tweets or TweetsArchive
-    descriptor: whether date is 'exact' or 'weekly'
-
-    Format: DISTRICT->PARTY->CANDIDATE->[total_likes, num_tweets, max_likes, tweet_text, first_name, last_name]
-    Also, each DISTRICT->PARTY gets a 'combined' category for cross-party comparisons
+    Format: DISTRICT->PARTY->CANDIDATE->[total_likes, num_tweets, max_likes, tweet_text, username]
+    each DPC also has a POS/NEG subcategory with the same above attributes for sentiment visualization
+    Also, each DP gets a 'combined' category for cross-party comparisons. This also has a POS/NEG subcategory.
     '''
     parties = ['Democrat', 'Republican']
     data = {}
@@ -80,143 +82,52 @@ def serialize_results(res, descriptor):
         for party in parties:
             data[d][party] = {}
 
-    for i in range(len(res)):
-        district, party, candidate = res[i].district, res[i].party.strip(), res[i].candidate.strip()
-        cur = get_data_as_dict(res[i])
-        cur['date_descriptor'] = descriptor
-        if candidate in data[district][party] and descriptor != 'exact': # if descriptor is exact, ignore possible duplicates
-            # happens when there are multiple weeks (tweets_archive table)
-            cur = merge_candidate_dicts(data[district][party][candidate], cur)
-        data[district][party][candidate] = cur
-
+    for q in qset:
+        # tweet: TweetsData instance
+        # cp: CandidatePolarity instance
+        # cd: Candidate instance
+        tweet = TweetsData(q.username.strip(), q.tweet_text.strip(), q.likes, q.sentiment, q.tweet_date, date_descriptor)
+        cp = CandidatePolarity(q.polarity.strip(), q.total_likes, q.num_tweets, q.avg_sentiment, tweet)
+        district, party, candidate = q.district, q.party.strip(), q.candidate.strip()
+        cd = None
+        if candidate in data[district][party]:
+            cd = data[district][party][candidate]
+        else:
+            cd = Candidate(candidate)
+            data[district][party][candidate] = cd
+        cd.insert_polarity(cp)
+    
     for d in range(1, NUM_DISTRICTS + 1):
+        district_data = data[d]
         for party in parties:
-            dp_data = data[d][party]
-            candidates = list(dp_data.keys())
-            dp_data['combined'] = {}
-            cur = dp_data['combined']
-            if len(candidates) == 0:
-                # it is possible to have 0 tweets about a candidate
-                cur['total_likes'] = 0
-                cur['num_tweets'] = 0
-                cur['max_likes'] = 0
-                cur['tweet_text'] = 'null'
-                cur['first_name'] = 'null'
-                cur['last_name'] = 'null'
-                cur['tweet_date'] = 'null'
-                cur['date_descriptor'] = 'null'
+            py = Party(party)
+            candidates = list(district_data[party].values())
+            for c in candidates:
+                c.combine_pos_neg()
+                py.add_candidate(c)
+            py.combine_candidates()
+            if asdict:
+                district_data[party] = py.asdict()
             else:
-                cur['total_likes'] = sum([dp_data[c]['total_likes'] for c in candidates])
-                cur['num_tweets'] = sum([dp_data[c]['num_tweets'] for c in candidates])
-                max_idx = np.argmax([dp_data[c]['max_likes'] for c in candidates])
-                max_c = candidates[max_idx]
-                cur['max_likes'] = dp_data[max_c]['max_likes']
-                cur['tweet_text'] = dp_data[max_c]['tweet_text']
-                cur['first_name'] = dp_data[max_c]['first_name']
-                cur['last_name'] = dp_data[max_c]['last_name']
-                cur['tweet_date'] = dp_data[max_c]['tweet_date']
-                cur['date_descriptor'] = dp_data[max_c]['date_descriptor']
+                district_data[party] = py
 
     return data
 
-def get_tweets_query(start, end):
-    query = "SELECT tweets.tweet_id, tweets.district, tweets.party, tweets.candidate, T1.total_likes, T1.num_tweets, tweets.first_name, tweets.last_name, T1.max_likes, tweets.tweet_text, tweets.tweet_date \
-                    FROM \
-                        (SELECT tweets.district, tweets.party, tweets.candidate, SUM(tweets.likes) as total_likes, COUNT(*) as num_tweets, MAX(tweets.likes) as max_likes \
-                        FROM tweets \
-                        WHERE tweets.tweet_date BETWEEN '{}' AND '{}'    \
-                        GROUP BY tweets.district, tweets.party, tweets.candidate) T1, tweets \
-                    WHERE tweets.district = T1.district \
-                    AND tweets.party = T1.party \
-                    AND tweets.candidate = T1.candidate \
-                    AND tweets.likes = T1.max_likes".format(start.strftime('%Y-%m-%d %H:%M:%S'), end.strftime('%Y-%m-%d %H:%M:%S'))
-    # print(query)
-    return query
-
-def get_tweets_archive_query(start, end):
-    start = get_previous_monday(start) if start.weekday() != 0 else start # if not already a monday
-    query = "SELECT tweets_archive.week_start, tweets_archive.week_start as tweet_date, tweets_archive.district, tweets_archive.party, tweets_archive.candidate, tweets_archive.total_likes, tweets_archive.num_tweets, tweets_archive.likes as max_likes, tweets_archive.most_liked_tweet as tweet_text, tweets_archive.first_name, tweets_archive.last_name\
-            FROM tweets_archive \
-            WHERE tweets_archive.week_start \
-            BETWEEN '{}' AND '{}'".format(start.strftime('%Y-%m-%d %H:%M:%S'), end.strftime('%Y-%m-%d %H:%M:%S'))
-    # print(query)
-    return query
-
-def merge_tweets_and_tweet_archive(tweets_data, tweets_archive_data):
-    parties = ['Democrat', 'Republican']
-    data = {}
-    for d in range(1, NUM_DISTRICTS + 1):
-        data[d] = {}
-        for party in parties:
-            data[d][party] = {}
-            dp_data = data[d][party]
-            all_c = set(list(tweets_data[d][party].keys()) + list(tweets_archive_data[d][party].keys()))
-            for c in all_c:
-                if c == 'combined':
-                    continue
-                dp_data[c] = {}
-                for col in ['total_likes', 'num_tweets']:
-                    dp_data[c][col] = 0
-                    if c in tweets_data[d][party]:
-                        dp_data[c][col] += tweets_data[d][party][c][col]
-                    if c in tweets_archive_data[d][party]:
-                        dp_data[c][col] += tweets_archive_data[d][party][c][col]
-                max_data = None
-                if c not in tweets_data[d][party]:
-                    max_data = tweets_archive_data
-                elif c not in tweets_archive_data[d][party]:
-                    max_data = tweets_data
-                else:
-                    max_data = tweets_data if tweets_data[d][party][c]['max_likes'] >= tweets_archive_data[d][party][c]['max_likes'] else tweets_archive_data
-                dp_data[c]['max_likes'] = max_data[d][party][c]['max_likes']
-                dp_data[c]['tweet_text'] = max_data[d][party][c]['tweet_text']
-                dp_data[c]['first_name'] = max_data[d][party][c]['first_name']
-                dp_data[c]['last_name'] = max_data[d][party][c]['last_name']
-                dp_data[c]['tweet_date'] = max_data[d][party][c]['tweet_date']
-                dp_data[c]['date_descriptor'] = max_data[d][party][c]['date_descriptor']
-
-    for d in range(1, NUM_DISTRICTS + 1):
-        for party in parties:
-            dp_data = data[d][party]
-            candidates = list(dp_data.keys())
-            dp_data['combined'] = {}
-            cur = dp_data['combined']
-            if len(candidates) == 0:
-                # it is possible to have 0 tweets about a candidate
-                cur['total_likes'] = 0
-                cur['num_tweets'] = 0
-                cur['max_likes'] = 0
-                cur['tweet_text'] = 'null'
-                cur['first_name'] = 'null'
-                cur['last_name'] = 'null'
-                cur['tweet_date'] = 'null'
-                cur['date_descriptor'] = 'null'
-            else:
-                cur['total_likes'] = sum([dp_data[c]['total_likes'] for c in candidates])
-                cur['num_tweets'] = sum([dp_data[c]['num_tweets'] for c in candidates])
-                max_idx = np.argmax([dp_data[c]['max_likes'] for c in candidates])
-                max_c = candidates[max_idx]
-                cur['max_likes'] = dp_data[max_c]['max_likes']
-                cur['tweet_text'] = dp_data[max_c]['tweet_text']
-                cur['first_name'] = dp_data[max_c]['first_name']
-                cur['last_name'] = dp_data[max_c]['last_name']
-                cur['tweet_date'] = dp_data[max_c]['tweet_date']
-                cur['date_descriptor'] = dp_data[max_c]['date_descriptor']    
-
-    return data
 
 def find_all_candidates(data):
     democrat_candidates = set()
     republican_candidates = set()
     for i in range(1, NUM_DISTRICTS + 1):
-        for k in data[i]['Democrat'].keys():
-            if k == 'combined':
-                continue
-            democrat_candidates.add(k)
-        for k in data[i]['Republican'].keys():
-            if k == 'combined':
-                continue
-            republican_candidates.add(k)
+        if data[i]['Democrat'] != 'null':
+            for k in data[i]['Democrat'].keys():
+                if k == 'combined':
+                    continue
+                democrat_candidates.add(k)
+        if data[i]['Republican'] != 'null':
+            for k in data[i]['Republican'].keys():
+                if k == 'combined':
+                    continue
+                republican_candidates.add(k)
     return list(democrat_candidates), list(republican_candidates)
 
 # Create your views here.
@@ -237,18 +148,18 @@ def tweet_view(request):
         end = datetime.strptime(end, '%B %d, %Y') + timedelta(hours=23, minutes=59, seconds=59)
         query = None
         data = None
-        if is_in_current_week(start, end):
+        if is_within_one_week_ago(start, end):
             # print('is cur week')
             # uses Tweets db
             query = get_tweets_query(start, end)
             res = list(Tweets.objects.raw(query))
-            data = serialize_results(res, 'exact')
+            data = process_results(res, 'exact', asdict=True)
         elif is_before_current_week(start, end):
             # print('is prev week')
             # uses Tweets Archive table
             query = get_tweets_archive_query(start, end)
             res = list(TweetsArchive.objects.raw(query))
-            data = serialize_results(res, 'weekly')
+            data = process_results(res, 'weekly', asdict=True)
         else:
             # print('need to merge')
             # run both and merge results
@@ -256,15 +167,21 @@ def tweet_view(request):
             query2 = get_tweets_archive_query(start, end)
             res1 = list(Tweets.objects.raw(query1))
             res2 = list(TweetsArchive.objects.raw(query2))
-            data1 = serialize_results(res1, 'exact')
-            data2 = serialize_results(res2, 'weekly')
-            data = merge_tweets_and_tweet_archive(data1, data2)
+            data1 = process_results(res1, 'exact', asdict=False)
+            data2 = process_results(res2, 'weekly', asdict=False)
+            # this combines the two dictionaries
+            data = {}
+            for d in range(1, NUM_DISTRICTS + 1):
+                data[d] = {}
+                for party in ['Democrat', 'Republican']:
+                    data[d][party] = data1[d][party].combine(data2[d][party]).asdict()
+            
         return HttpResponse(json.dumps(data))
 
     # get HTML and base map with everything in Tweets (1w)
     else:
         res = list(Tweets.objects.raw(BASE_QUERY))
-        data = serialize_results(res, 'exact')
+        data = process_results(res, 'exact', asdict=True)
         democrat_candidates, republican_candidates = find_all_candidates(data)
         fp = open('tweets/data/illinois.json', 'rb')
         context = {
