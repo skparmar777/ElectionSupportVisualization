@@ -21,12 +21,14 @@ def text_to_sentiment(text):
     tokens = [token.lower() for token in cleaned_text if not token.lower() in stop_words]
     vectors = word_embeddings.reindex(tokens).dropna()
     if len(vectors) == 0:
-        return "no valid words in text"
+        return 0, []
     predictions = model.predict_log_proba(vectors)
-    score = np.mean(predictions[:, 1] - predictions[:, 0])
+    log_odds = np.sum(predictions[:, 1]) - np.sum(predictions[:, 0])
+    p_pos = np.exp(log_odds) / (1 + np.exp(log_odds))
+    score = p_pos * 2 - 1
     return score, tokens
 
 
-(score, words) = text_to_sentiment("@peter I really love that shirt at #Macy. http://bet.ly//WjdiW4")
-print(score)
-print(words)
+# (score, words) = text_to_sentiment("@peter I really love that shirt at #Macy. http://bet.ly//WjdiW4")
+# print(score)
+# print(words)

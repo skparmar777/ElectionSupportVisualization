@@ -6,6 +6,8 @@
 .ipynb_checkpoints/
 jatin/data
 migrations
+*.h5
+webApp/data/*
 
 # dotenv
 .env
