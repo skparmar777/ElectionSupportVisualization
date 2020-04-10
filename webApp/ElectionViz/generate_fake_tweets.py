@@ -27,7 +27,7 @@ FAKE_TWEETS = [
 FAKE_USERNAMES = [
     'justin_math_nerd',
     'sejal_hedge_fund_manager',
-    'soham_likes_big_data',
+    'soham_does_ml',
     'noice',
     'yippeeXD999',
     'wuuut',
@@ -58,13 +58,13 @@ def generate_random_tweet():
     random_second = random.randrange(int_delta)
     tweet_date = START_TIME + timedelta(seconds=random_second)
 
-    likes = int(random.gauss(50, 100))
+    likes = int(random.gauss(5, 5))
     while (likes < 0):
-        likes = int(random.gauss(50, 100))
+        likes = int(random.gauss(5, 5))
 
-    sentiment = random.gauss(0.1, 0.5) # slight positive
+    sentiment = random.gauss(0.1, 0.1) # slight positive
     while sentiment > 1 or sentiment < -1:
-        sentiment = random.gauss(0.1, 0.5)
+        sentiment = random.gauss(0.1, 0.1)
     polarity = 'P' if sentiment >= 0 else 'N'
 
     return [tweet_date, party, candidate, district, username, likes, tweet, sentiment, polarity]

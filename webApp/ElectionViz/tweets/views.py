@@ -48,7 +48,6 @@ def get_tweets_archive_query(start, end):
             FROM tweets_archive \
             WHERE tweets_archive.week_start \
             BETWEEN '{}' AND '{}'".format(start.strftime('%Y-%m-%d %H:%M:%S'), end.strftime('%Y-%m-%d %H:%M:%S'))
-    print(query)
     return query
 
 def get_previous_monday(dt):
@@ -182,7 +181,10 @@ def tweet_view(request):
     else:
         res = list(Tweets.objects.raw(BASE_QUERY))
         data = process_results(res, 'exact', asdict=True)
-        democrat_candidates, republican_candidates = find_all_candidates(data)
+        out = json.dumps(data)
+        open('out.txt', 'w').write(out)
+        # data = json.loads(open('out.txt').read())
+        democrat_candidates, republican_candidates = ["Bernie", "Biden"], ['Trump'] # find_all_candidates(data)
         fp = open('tweets/data/illinois.json', 'rb')
         context = {
             'data': json.dumps(data),

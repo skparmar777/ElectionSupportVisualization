@@ -5,7 +5,7 @@ class TweetsData:
         self.username = username
         self.tweet_text = tweet_text
         self.likes = likes
-        self.sentiment = sentiment
+        self.sentiment = round(sentiment, 2)
         self.tweet_date = tweet_date
         self.date_descriptor = date_descriptor
 
@@ -15,7 +15,7 @@ class TweetsData:
     def asdict(self):
         ret = {}
         ret['username'] = self.username
-        ret['tweet_text'] = self.tweet_text
+        ret['tweet_text'] = self.tweet_text.replace('\n', ' ').replace('\\', '').replace('"', "'")
         ret['likes'] = self.likes
         ret['sentiment'] = self.sentiment
         ret['tweet_date'] = self.tweet_date.strftime('%B %d at %H:%M')
