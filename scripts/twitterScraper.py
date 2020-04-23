@@ -4,23 +4,23 @@ import tweepy
 import string
 import pandas as pd
 import os
+import json
 
 # from pymongo import MongoClient
 # from dotenv import load_dotenv
 
 from sentiment import text_to_sentiment
 
+with open("env_vars.json", "r") as config:
+    contents = config.read()
+    tweet_ids_dict = json.loads(contents)
+# print(tweet_ids_dict)
+
+globals().update(tweet_ids_dict)
 
 def remove_control_chars(s):
     s1 = ''.join(filter(lambda x: x in string.printable, s))
     return re.sub(r'[^\w]', ' ', s1)
-
-
-# def build_connection_string():
-#     load_dotenv()
-#     return 'mongodb+srv://' + os.getenv('MONGO_USERNAME') + ':' + os.getenv(
-#         'MONGO_PASSWORD') + '@sohams2cluster-upcyf.mongodb.net/test?retryWrites=true&w=majority'
-
 
 cities_df = pd.read_csv(r'census_data/cleaned_il_data.csv')
 
@@ -83,13 +83,12 @@ tweet_csvWriter.writerow(
     ['tweet_id', 'date', 'candidate', 'party', 'user_name', 'user_location', 'text', 'sentiment', 'tokens', 'likes',
      'latitude', 'longitude'])
 count = 0
-# client = MongoClient(build_connection_string())
-# db = client["election"]
-# collection = db["tweets"]
 
+last_seen_bernie = last_sanders_id
 # use a radius that covers all of illinois, pull 100 most recent tweets
-for tweet in tweepy.Cursor(api.search, q="bernie sanders", geocode='40.049174,-88.858617,193mi', count=1000000).items(
+for tweet in tweepy.Cursor(api.search, q="bernie sanders", geocode='40.049174,-88.858617,193mi', since_id=last_sanders_id, count=1000000).items(
         1000000):
+    last_seen_bernie = tweet.id
     tweet_txt = tweet.text
     name = tweet.user.name
     user_loc = ''
@@ -114,9 +113,10 @@ for tweet in tweepy.Cursor(api.search, q="bernie sanders", geocode='40.049174,-8
             tweet_csvWriter.writerow(tweet_obj.format_csv_row())
             # collection.insert_one(tweet_obj.format_json())
 
-
-for tweet in tweepy.Cursor(api.search, q="joe biden", geocode='40.049174,-88.858617,193mi', count=1000000).items(
+last_seen_biden = last_biden_id
+for tweet in tweepy.Cursor(api.search, q="joe biden", geocode='40.049174,-88.858617,193mi', since_id=last_biden_id, count=1000000).items(
         1000000):
+    last_seen_biden = tweet.id
     tweet_txt = tweet.text
     name = tweet.user.name
     user_loc = ''
@@ -141,8 +141,10 @@ for tweet in tweepy.Cursor(api.search, q="joe biden", geocode='40.049174,-88.858
             tweet_csvWriter.writerow(tweet_obj.format_csv_row())
             # collection.insert_one(tweet_obj.format_json())
 
-for tweet in tweepy.Cursor(api.search, q="donald trump", geocode='40.049174,-88.858617,193mi', count=1000000).items(
+last_seen_trump = last_trump_id
+for tweet in tweepy.Cursor(api.search, q="donald trump", geocode='40.049174,-88.858617,193mi', ince_id=last_trump_id, count=1000000).items(
         1000000):
+    last_seen_trump = tweet.id
     tweet_txt = tweet.text
     name = tweet.user.name
     user_loc = ''
@@ -165,4 +167,7 @@ for tweet in tweepy.Cursor(api.search, q="donald trump", geocode='40.049174,-88.
                           tweet_txt, sentiment_tokens[0], sentiment_tokens[1],user_loc)
             print("writing row, trump")
             tweet_csvWriter.writerow(tweet_obj.format_csv_row())
-            # collection.insert_one(tweet_obj.format_json())
+
+new_vars = {"last_sanders_id": last_seen_bernie,"last_biden_id": last_seen_biden,"last_trump_id": last_seen_trump}
+with open("env_vars.json", "w") as config:
+    json.dump(new_vars, config)
