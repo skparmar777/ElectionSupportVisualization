@@ -78,7 +78,7 @@ auth.set_access_token(access_token, access_token_secret)
 api = tweepy.API(auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
 
 # process sanders tweets
-tweet_csv = open(f'tweets_full_{date}.csv', 'a', encoding='UTF-8', newline='')
+tweet_csv = open(f'data/tweets_full_{date}.csv', 'a', encoding='UTF-8', newline='')
 tweet_csvWriter = csv.writer(tweet_csv)
 tweet_csvWriter.writerow(
     ['tweet_id', 'date', 'candidate', 'party', 'user_name', 'user_location', 'text', 'sentiment', 'tokens', 'likes',
