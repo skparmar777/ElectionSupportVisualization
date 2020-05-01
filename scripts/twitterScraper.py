@@ -10,7 +10,7 @@ from datetime import datetime
 # from pymongo import MongoClient
 # from dotenv import load_dotenv
 
-# from sentiment import text_to_sentiment
+from sentiment import text_to_sentiment
 
 with open("env_vars.json", "r") as config:
     contents = config.read()
@@ -78,7 +78,10 @@ auth.set_access_token(access_token, access_token_secret)
 api = tweepy.API(auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
 
 # process sanders tweets
-tweet_csv = open(f'data/tweets_full_{date}.csv', 'a', encoding='UTF-8', newline='')
+now = datetime.now()
+new_date = now.strftime("%m_%d_%Y")
+loc = 'data/tweets_full_{}.csv'.format(new_date)
+tweet_csv = open(loc, 'a', encoding='UTF-8', newline='')
 tweet_csvWriter = csv.writer(tweet_csv)
 tweet_csvWriter.writerow(
     ['tweet_id', 'date', 'candidate', 'party', 'user_name', 'user_location', 'text', 'sentiment', 'tokens', 'likes',
@@ -167,8 +170,6 @@ for tweet in tweepy.Cursor(api.search, q="donald trump", geocode='40.049174,-88.
             print("writing row, trump")
             tweet_csvWriter.writerow(tweet_obj.format_csv_row())
 
-now = datetime.now()
-new_date = now.strftime("%m_%d_%Y")
 new_vars = {"last_sanders_id": last_seen_bernie,"last_biden_id": last_seen_biden,"last_trump_id": last_seen_trump, "date": new_date}
 with open("env_vars.json", "w") as config:
     json.dump(new_vars, config)
