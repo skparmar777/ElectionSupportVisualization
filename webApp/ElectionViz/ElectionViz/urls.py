@@ -17,9 +17,11 @@ from django.contrib import admin
 from django.urls import path
 
 from tweets.views import tweet_view
+from tweets.comments import handle_comment_request
 
 urlpatterns = [
     path('admin/', admin.site.urls),
 
-    path('', tweet_view)
+    path('', tweet_view),
+    path('comments/', handle_comment_request)
 ]

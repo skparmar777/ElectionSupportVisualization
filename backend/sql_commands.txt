@@ -39,6 +39,13 @@ CREATE TABLE tweets_archive (
     PRIMARY KEY (week_start, party, candidate, district, polarity)
 );
 
+CREATE TABLE comments (
+    name CHAR(100) PRIMARY KEY,
+    hpass INT,
+    comment_time DATETIME,
+    comment CHAR(256)
+);
+
 CREATE PROCEDURE keep_only_last_week
 AS
     DECLARE @current_time DATETIME = GETDATE();

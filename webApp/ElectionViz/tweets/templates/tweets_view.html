@@ -24,13 +24,13 @@
     <link href="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/css/select2.min.css" rel="stylesheet" />
     <script src="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/js/select2.min.js"></script>
 
-    <!-- font awesome -->
+    <!-- font awesome library -->
     <script src="https://kit.fontawesome.com/52b21dbc54.js"></script>
 
-    <!-- current commented out because it is not necessary, but in the future I could have the need for a stylesheet -->
     <link rel='stylesheet' href="{% static 'css/tweets_view.css' %}" type='text/css'/>
+    <link rel='stylesheet' href="{% static 'css/comments.css' %}" type='text/css'/>
 
-    <!-- API for tweets data, makes code more manageable -->
+    <!-- My little API for tweets data, makes code more manageable -->
     <script type="text/javascript" src="{% static 'js/tweets_interface.js' %}"></script>
     <script type="text/javascript" src="{% static 'js/coloring.js' %}"></script>
 
@@ -44,12 +44,13 @@
         const TWEETS_INTERFACE = new TweetsInterface(TWEET_DATA);
         let DEMOCRAT_CANDIDATES = JSON.parse('{{ democrat_candidates }}'.replace(/&quot;/g,'"'));
         let REPUBLICAN_CANDIDATES = JSON.parse('{{ republican_candidates }}'.replace(/&quot;/g,'"'));
+        let COMMENTS = JSON.parse('{{ comments }}'.replace(/&quot;/g,'"'));
     </script>
 </head>
 
 <body>
      <!-- initializes the SVG element -->
-     <div class='svg-container'>
+     <div class='svg-container' style="margin: auto; width: 1400px;">
         <svg></svg>
     </div>
 
@@ -138,6 +139,35 @@
             });
         });
     </script>
+
+    <!-- send comments -->
+    <button class="open-button" onclick="handle_comments_click()">Leave a Comment</button>
+    <div class="chat-popup" id="myForm">
+        <div class="form-container">
+            <label for="msg"><b>Username</b></label>
+            <input id="username" type="text" required maxlength="20"></input>
+            <br />
+
+            <label for="msg"><b>Password</b></label>
+            <input id="password" type="password" required maxlength="20"></input>
+            <br />
+
+            <label for="msg"><b>Comment</b></label>
+            <textarea id="comments" placeholder="Type message.." name="msg" required maxlength="256"></textarea>
+            <button type="submit" class="btn" id="send-comments">Send</button>
+            <button type="button" class="btn cancel" id="cancel-comments" onclick="close_comments()">Close</button>
+        </div>
+    </div>
+
+    <!-- see comments -->
+    <div id="all-comments-frame">
+        <h3>Recent Comments</h3>
+        <div id="comments-list">
+            <!-- Entries will be appended here dynamically -->
+        </div> 
+   </div>
+
+    <script type="text/javascript" src="{% static 'js/comments.js' %}"></script>
 
 </body>
 

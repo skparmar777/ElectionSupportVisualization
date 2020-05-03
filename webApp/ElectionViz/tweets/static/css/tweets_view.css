@@ -1,3 +1,11 @@
+.svg-container {
+    position: relative;
+}
+
+.map-layer {
+    margin: 0 auto;
+}
+
 div.hover-text {
     position: absolute;
     text-align: center;

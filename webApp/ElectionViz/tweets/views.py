@@ -8,6 +8,7 @@ import json
 
 from .data_utils import TweetsData, Candidate, CandidatePolarity, Party
 from .models import Tweets, TweetsArchive
+from .comments import get_recent_comments
 import numpy as np
 
 NUM_DISTRICTS = 18
@@ -136,7 +137,7 @@ def tweet_view(request):
     # query1 = Tweets.objects.values('district', 'party').annotate(total_likes = Sum('likes'), num_tweets = Count('tweet_id'), max_likes = Max('likes'))
      # objs_tf = Tweets.objects.filter(tweet_date__range = [start, end])
 
-    # POST when daterange is queried
+    # POST when daterange is queried; no other POST should come here
     if request.method == 'POST':
         # ex of request.body: daterange=March 5, 2017 - March 11, 2017
         daterange = request.body.decode('utf-8').split('=')[1]
@@ -180,17 +181,16 @@ def tweet_view(request):
     # get HTML and base map with everything in Tweets (1w)
     else:
         res = list(Tweets.objects.raw(BASE_QUERY))
-        data = process_results(res, 'exact', asdict=True)
-        out = json.dumps(data)
-        open('out.txt', 'w').write(out)
-        # data = json.loads(open('out.txt').read())
+        data = process_results(res, 'exact', asdict=True)    
         democrat_candidates, republican_candidates = ["Bernie", "Biden"], ['Trump'] # find_all_candidates(data)
+        comments = get_recent_comments()
         fp = open('tweets/data/illinois.json', 'rb')
         context = {
             'data': json.dumps(data),
             'democrat_candidates': json.dumps(democrat_candidates),
             'republican_candidates': json.dumps(republican_candidates),
-            'map_json': json.dumps(json.load(fp))
+            'map_json': json.dumps(json.load(fp)),
+            'comments': json.dumps(comments)
         }
         fp.close()
         return render(request, 'templates/tweets_view.html', context)
