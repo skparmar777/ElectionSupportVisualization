@@ -45,7 +45,7 @@ def get_recent_comments():
     one_day_ago = datetime.utcnow() + timedelta(days=-1)
     query = "SELECT * FROM comments \
             WHERE comments.comment_time > '{}' \
-            ORDER BY comments.comment_time ASC".format(one_day_ago.strftime("%Y-%m-%d %H:%M:%S"))
+            ORDER BY comments.comment_time DESC".format(one_day_ago.strftime("%Y-%m-%d %H:%M:%S"))
     res = list(Comments.objects.raw(query))
     to_return = []
     for i in range(len(res)):

@@ -76,6 +76,7 @@
   height: 80vh;
   width: 280px;
   border: 1px solid #1b1b1d;
+  overflow-y: auto;
 }
 
 #all-comments-frame h3 {
