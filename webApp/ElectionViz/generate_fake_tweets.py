@@ -39,7 +39,7 @@ CUR_TIME = datetime.now(pytz.utc) # all times in UTC
 DAY_RANGE = 90 # can generate times between now and DAY_RANGE days ago
 START_TIME = CUR_TIME - timedelta(days=DAY_RANGE)
 
-NUM_DISTRICTS = 18
+NUM_DISTRICTS = 102
 
 
 # ----------------------------
@@ -51,7 +51,7 @@ def generate_random_tweet():
     # same format as create_sql_query
     tweet, candidate, party = select_random(FAKE_TWEETS)
     username = select_random(FAKE_USERNAMES)
-    district = random.randint(1, 18)
+    district = random.randint(0, NUM_DISTRICTS - 1)
 
     delta = CUR_TIME - START_TIME
     int_delta = (delta.days * 24 * 60 * 60) + delta.seconds

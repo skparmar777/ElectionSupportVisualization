@@ -11,7 +11,7 @@ from .models import Tweets, TweetsArchive
 from .comments import get_recent_comments
 import numpy as np
 
-NUM_DISTRICTS = 18
+NUM_DISTRICTS = 102
 
 # I tried using the Django ORM but the query I want I just could not find anywhere
 BASE_QUERY = "SELECT tweets.tweet_id, tweets.tweet_date, tweets.district, tweets.party, tweets.candidate, tweets.polarity, T1.total_likes, T1.num_tweets, T1.avg_sentiment, tweets.username, T1.max_likes, tweets.tweet_text, tweets.sentiment \
@@ -77,7 +77,7 @@ def process_results(qset, date_descriptor, asdict=True):
     '''
     parties = ['Democrat', 'Republican']
     data = {}
-    for d in range(1, NUM_DISTRICTS + 1):
+    for d in range(0, NUM_DISTRICTS):
         data[d] = {}
         for party in parties:
             data[d][party] = {}
@@ -97,7 +97,7 @@ def process_results(qset, date_descriptor, asdict=True):
             data[district][party][candidate] = cd
         cd.insert_polarity(cp)
     
-    for d in range(1, NUM_DISTRICTS + 1):
+    for d in range(0, NUM_DISTRICTS):
         district_data = data[d]
         for party in parties:
             py = Party(party)
@@ -117,7 +117,7 @@ def process_results(qset, date_descriptor, asdict=True):
 def find_all_candidates(data):
     democrat_candidates = set()
     republican_candidates = set()
-    for i in range(1, NUM_DISTRICTS + 1):
+    for i in range(0, NUM_DISTRICTS):
         if data[i]['Democrat'] != 'null':
             for k in data[i]['Democrat'].keys():
                 if k == 'combined':
@@ -171,7 +171,7 @@ def tweet_view(request):
             data2 = process_results(res2, 'weekly', asdict=False)
             # this combines the two dictionaries
             data = {}
-            for d in range(1, NUM_DISTRICTS + 1):
+            for d in range(0, NUM_DISTRICTS):
                 data[d] = {}
                 for party in ['Democrat', 'Republican']:
                     data[d][party] = data1[d][party].combine(data2[d][party]).asdict()
