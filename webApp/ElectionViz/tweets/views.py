@@ -8,7 +8,7 @@ import json
 
 from .data_utils import TweetsData, Candidate, CandidatePolarity, Party
 from .models import Tweets, TweetsArchive
-from .comments import get_recent_comments
+from comments.comments import get_recent_comments
 import numpy as np
 
 NUM_DISTRICTS = 102
@@ -182,9 +182,9 @@ def tweet_view(request):
     else:
         res = list(Tweets.objects.raw(BASE_QUERY))
         data = process_results(res, 'exact', asdict=True)    
-        democrat_candidates, republican_candidates = ["Bernie", "Biden"], ['Trump'] # find_all_candidates(data)
+        democrat_candidates, republican_candidates = find_all_candidates(data)
         comments = get_recent_comments()
-        fp = open('tweets/data/illinois.json', 'rb')
+        fp = open('data/illinois.json', 'rb')
         context = {
             'data': json.dumps(data),
             'democrat_candidates': json.dumps(democrat_candidates),

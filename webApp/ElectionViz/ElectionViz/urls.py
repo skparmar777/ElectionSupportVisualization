@@ -17,11 +17,19 @@ from django.contrib import admin
 from django.urls import path
 
 from tweets.views import tweet_view
-from tweets.comments import handle_comment_request
+from historical.views import historical_view
+from comments.comments import handle_comment_request
+
+from django.shortcuts import redirect
+
+def redirect_view(request):
+    return redirect('tweets/')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
 
-    path('', tweet_view),
+    path('', redirect_view),
+    path('tweets/', tweet_view),
+    path('historical/', historical_view),
     path('comments/', handle_comment_request)
 ]

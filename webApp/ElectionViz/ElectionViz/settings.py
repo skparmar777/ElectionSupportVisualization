@@ -41,6 +41,8 @@ INSTALLED_APPS = [
 
     # own
     'tweets',
+    'historical',
+    'comments'
 ]
 
 MIDDLEWARE = [
@@ -58,7 +60,8 @@ ROOT_URLCONF = 'ElectionViz.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [os.path.join(BASE_DIR, 'tweets/')
+        'DIRS': [os.path.join(BASE_DIR, 'tweets/'),
+                os.path.join(BASE_DIR, 'historical/')
                 ],
         'APP_DIRS': True,
         'OPTIONS': {

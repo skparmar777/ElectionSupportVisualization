@@ -34,13 +34,3 @@ class TweetsArchive(models.Model):
         managed = False
         db_table = 'tweets_archive'
         unique_together = (('week_start', 'party', 'candidate', 'district', 'polarity'),)
-
-class Comments(models.Model):
-    name = models.CharField(primary_key=True, max_length=100)
-    hpass = models.IntegerField(blank=True, null=True)
-    comment_time = models.DateTimeField(blank=True, null=True)
-    comment = models.CharField(max_length=256, blank=True, null=True)
-
-    class Meta:
-        managed = False
-        db_table = 'comments'

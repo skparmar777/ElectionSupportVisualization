@@ -1,46 +1,22 @@
-// predeclared: TWEETS_INTERFACE, MAP_DATA, METRIC, SETUP, DEMOCRAT_CANDIDATES, REPUBLICAN_CANDIDATES
-// format of tweetData: DISTRICT -> PARTY -> CANDIDATE -> POLARITY -> [total_likes, num_tweets, avg_sentiment, tweet]
-// tweet keys: likes, username, tweet_text, tweet_date, date_descriptor
-// there are also 'combined' values at the CANDIDATE and PARTY level
+// predeclared: HISTORICAL_DATA, MAP_DATA, YEAR
+// format of HISTORICAL_DATA: YEAR -> DISTRICT -> PARTY -> CANDIDATE -> VOTES
 
-const reset = function() {
-    chosen_democrats = [];
-    chosen_republicans = [];
-    opacity_dict = null;
+// define a function on strings to turn "COOK COUNTY" into "Cook County"
+String.prototype.toProperCase = function () {
+    return this.replace(/\w\S*/g, function(txt){return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();});
+};
+
+const all_years = Object.keys(HISTORICAL_DATA);
+for (let i = 0; i < all_years.length; i++) {
+    const new_a = `<a class='dropdown-item' onclick='YEAR = ${all_years[i]}; colorMap(); renameDropdown();'>${all_years[i]}</a>`;
+    $(new_a).appendTo('.dropdown-menu');
 }
 
 const renameDropdown = function() {
-    let newText = 'Tweets ';
-    if (METRIC === 'total_likes') {
-        newText = 'Likes ';
-    }
-    else if (METRIC === 'avg_sentiment') {
-        newText = 'Sentiment ';
-    }
-    $("#tweet_vs_likes_button").text(newText);
+    $("#year_button").text(YEAR);
 };
 
-const updateCandidates = function() {
-    // called whenever something is selected
-    const objs = $('#select2_candidate_picker').select2('data');
-    reset();
-    for (let i = 0; i < objs.length; i++) {
-        const candidate = objs[i]['text'];
-        if (DEMOCRAT_CANDIDATES.includes(candidate)) {
-            chosen_democrats.push(candidate);
-        }
-        else {
-            chosen_republicans.push(candidate);
-        }
-    }
-    colorMap();
-}
-
-// declare variables
-color_interface = new ColorInterface(DEMOCRAT_CANDIDATES, REPUBLICAN_CANDIDATES);
-
-let chosen_democrats = [];
-let chosen_republicans = [];
+renameDropdown();
 
 // SVG
 const width = 1200;
@@ -68,6 +44,18 @@ const hover_div = d3.select("body").append("div")
                                     .attr("class", "hover-text")
                                     .style("opacity", 0);
 
+// red colors, most red to least red
+const redList = ['rgb(135, 0, 23)', 'rgb(179, 0, 21)', 'rgb(215, 0, 16)', 'rgb(237, 48, 56)', 'rgb(250, 91, 97)', 'rgb(250, 134, 136)']
+
+// blue colors, least blue to most blue
+const blueList = ['rgb(188, 210, 232)', 'rgb(145, 186, 214)', 'rgb(115, 165, 198)', 'rgb(82, 138, 174)', 'rgb(46, 89, 132)', 'rgb(30, 63, 102)']
+
+const combinedList = redList.concat(blueList);
+
+const drColorScale = d3.scale.quantize()
+                            .domain([0, 1.0])
+                            .range(combinedList);
+
 const get_symbol = function(string) {
     if (string === 'Republican') {
         return 'R';
@@ -78,53 +66,44 @@ const get_symbol = function(string) {
     return string;
 }
 
-const metric_as_string = function(metric) {
-    if (metric === 'total_likes') {
-        return '&#x2665';
-    }
-    else if (metric == 'num_tweets') {
-        return '<i class="fab fa-twitter"></i>';
-    }
-    return '<i class="fas fa-poll"></i>';
+const metric_as_string = function() {
+    return '<i class="fas fa-vote-yea"></i>';
 }
 
-const construct_hover_text = function(district) {
+const construct_hover_text = function(district, name) {
     /**  FORMAT:
-        Distric <id>
+        County: <name>
         pctg% <larger_group>
         <larger_group_metric> <larger_group_symbol> <metric_as_string>, <smaller_group_metric> <smaller_group_symbol> <metric_as_string>
-
-        "<most_liked_tweet from larger_group>" 
-        - username
-        <likes> likes, <sentiment> sentiment
-        <tweet_date>
     */
-   const data = TWEETS_INTERFACE.get_hover_text_info(district, chosen_democrats, chosen_republicans, METRIC, POLARITY);
-   if (data === null) {
-       return null;
-   }
-   const pctg = (100 * data['larger_group_metric'] / (data['larger_group_metric'] + data['smaller_group_metric'])).toFixed(2);
-   if (METRIC === 'avg_sentiment') {
-       // push back to between -1 and 1 for displaying
-       data['larger_group_metric'] = (data['larger_group_metric'] * 2 - 1).toFixed(2);
-       data['smaller_group_metric'] = (data['smaller_group_metric'] * 2 - 1).toFixed(2);
-   }
-   const sentiment = data['sentiment'].toFixed(2);
-   const mas = metric_as_string(METRIC);
-   let date_string = data['tweet_date'];
-   if (data['date_descriptor'] !== 'exact') {
-        const splits = date_string.split(' ');
-        date_string = 'Week of ' + splits[0] + ' '  + splits[1]
-   }
+    const data = HISTORICAL_DATA[YEAR][district];
+    const dvalues = $.map(data['Democrat'], function(value, key) { return value });
+    const dkeys = $.map(data['Democrat'], function(value, key) { return key });
+    const rvalues = $.map(data['Republican'], function(value, key) { return value });
+    const rkeys = $.map(data['Republican'], function(value, key) { return key });
+
+    let larger = null;
+    let larger_c = null;
+    let smaller = null;
+    let smaller_c = null;
+    if (dvalues[0] > rvalues[0]) {
+        larger = 'Democrat';
+        larger_c = dkeys[0];
+        smaller = 'Republican';
+        smaller_c = rkeys[0];
+    }
+    else {
+        larger = 'Republican';
+        larger_c = rkeys[0];
+        smaller = 'Democrat';
+        smaller_c = dkeys[0];
+    }
+    const pctg = (100 * data[larger][larger_c] / (data[larger][larger_c] + data[smaller][smaller_c])).toFixed(2);
+    const mas = metric_as_string();
     
-   const string = `District ${district}\n \
-                     ${pctg}% ${data['larger_group']}\n \
-                     ${data['larger_group_metric']} ${get_symbol(data['larger_group'])} ${mas}, ${data['smaller_group_metric']} ${get_symbol(data['smaller_group'])} ${mas}\n \
-                     \n \
-                     "${data['tweet_text']}"\n \
-                     - ${data['username']}\n \
-                     ${data['likes']} ${metric_as_string('total_likes')}, ${sentiment} ${metric_as_string('avg_sentiment')} \n \
-                     ${date_string}\n`;
+   const string = `County: ${name.toProperCase()}\n \
+                     ${pctg}% ${larger}\n \
+                     ${data[larger][larger_c]} ${get_symbol(larger)} ${mas}, ${data[smaller][smaller_c]} ${get_symbol(smaller)} ${mas}\n`;
     return string;
 }
 
@@ -158,7 +137,7 @@ const displayBaseMap = function () {
             hover_div.transition()
                  .duration(50)
                  .style("opacity", 1);
-            const text = construct_hover_text(d.properties['DISTRICT']);
+            const text = construct_hover_text(d.properties['DISTRICT'], d.properties['COUNTY_NAM']);
             if (text !== null) {
                 hover_div.html(text)
                             .style("left", (d3.event.pageX + 10) + "px")
@@ -185,11 +164,10 @@ const displayBaseMap = function () {
 const colorMap = function() {
     mapLayer.selectAll('path')
         .style('fill', function (d) {
-            const color = color_interface.chose_color(d.properties['DISTRICT'], chosen_democrats, chosen_republicans, METRIC, POLARITY);
-            // d3.select(this).transition()
-            //                 .duration('50')
-            //                 .attr('opacity', opacity_dict[d.properties['DISTRICT']]);
-            return color;
+            const data = HISTORICAL_DATA[YEAR][d.properties['DISTRICT']];
+            const dvalues = $.map(data['Democrat'], function(value, key) { return value });
+            const rvalues = $.map(data['Republican'], function(value, key) { return value });
+            return drColorScale(dvalues[0] / (dvalues[0] + rvalues[0]));
         });
 }
 

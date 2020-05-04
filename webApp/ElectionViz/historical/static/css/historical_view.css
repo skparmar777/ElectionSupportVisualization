@@ -1,0 +1,30 @@
+.svg-container {
+    position: relative;
+}
+
+.map-layer {
+    margin: 0 auto;
+}
+
+div.hover-text {
+    position: absolute;
+    text-align: center;
+    padding: .5rem;
+    background: #FFFFFF;
+    color: #313639;
+    border: 1px solid #708090;
+    border-radius: 8px;
+    pointer-events: none;
+    font-size: 1rem;
+    white-space: pre-line;
+}
+
+.dropdown {
+    position: absolute;
+    left: 100px;
+    top: 100px;
+}
+
+#year_button {
+    width: 150px !important;
+}

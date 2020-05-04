@@ -39,6 +39,15 @@ CREATE TABLE tweets_archive (
     PRIMARY KEY (week_start, party, candidate, district, polarity)
 );
 
+CREATE TABLE historical(
+    year INT,
+    party CHAR(100),
+    candidate CHAR(100),
+    county CHAR(100),
+    votes INT,
+    PRIMARY KEY (year, party, candidate, county)
+);
+
 CREATE TABLE comments (
     name CHAR(100) PRIMARY KEY,
     hpass INT,

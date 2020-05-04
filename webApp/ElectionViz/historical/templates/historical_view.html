@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+
+{% load staticfiles %}
+
+<head>
+
+    <!-- loads version 3 of the d3.js library -->
+    <script src="https://d3js.org/d3.v3.min.js"></script>
+    <script src = "https://cdnjs.cloudflare.com/ajax/libs/d3-legend/1.13.0/d3-legend.min.js"></script>
+
+    <!-- bootstrap stuff -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+
+    <!-- font awesome library -->
+    <script src="https://kit.fontawesome.com/52b21dbc54.js"></script>
+
+    <link rel='stylesheet' href="{% static 'css/historical_view.css' %}" type='text/css'/>
+    <link rel='stylesheet' href="{% static 'css/comments.css' %}" type='text/css'/>
+
+    <!-- initializes global variables in JS -->
+    <script>
+        let HISTORICAL_DATA = JSON.parse('{{ data }}'.replace(/&quot;/g,'"'));
+        const MAP_DATA = JSON.parse('{{ map_json }}'.replace(/&quot;/g,'"'));
+        let COMMENTS = JSON.parse('{{ comments }}'.replace(/&quot;/g,'"'));
+        let YEAR = Math.max(...Object.keys(HISTORICAL_DATA));
+    </script>
+</head>
+
+<body>
+     <!-- initializes the SVG element -->
+     <div class='svg-container' style="margin: auto; width: 1400px;">
+        <svg></svg>
+    </div>
+
+    <!-- initialize the year picker -->
+    <div class="dropdown">
+        <button class="btn btn-secondary dropdown-toggle" type="button" id="year_button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+        </button>
+        <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+            <!-- <a class="dropdown-item" onclick="METRIC = 'num_tweets'; colorMap(); renameDropdown();">Tweets</a>
+            <a class="dropdown-item" onclick="METRIC = 'total_likes'; colorMap(); renameDropdown();">Likes</a>
+            <a class="dropdown-item" onclick="METRIC = 'avg_sentiment'; colorMap(); renameDropdown();">Average Sentiment</a> -->
+        </div>
+    </div>
+
+    <!-- send comments -->
+    <button class="open-button" onclick="handle_comments_click()">Leave a Comment</button>
+    <div class="chat-popup" id="myForm">
+        <div class="form-container">
+            <label for="msg"><b>Username</b></label>
+            <input id="username" type="text" required maxlength="20"></input>
+            <br />
+
+            <label for="msg"><b>Password</b></label>
+            <input id="password" type="password" required maxlength="20"></input>
+            <br />
+
+            <label for="msg"><b>Comment</b></label>
+            <textarea id="comments" placeholder="Type message.." name="msg" required maxlength="256"></textarea>
+            <button type="submit" class="btn" id="send-comments">Send</button>
+            <button type="button" class="btn cancel" id="cancel-comments" onclick="close_comments()">Close</button>
+        </div>
+    </div>
+
+    <!-- see comments -->
+    <div id="all-comments-frame">
+        <h3>Recent Comments</h3>
+        <div id="comments-list">
+            <!-- Entries will be appended here dynamically -->
+        </div> 
+   </div>
+
+    <script type="text/javascript" src="{% static 'js/comments.js' %}"></script>
+
+</body>
+
+<!-- the visualization script -->
+<script type="text/javascript" src="{% static 'js/historical_view.js' %}"></script>
+
