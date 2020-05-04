@@ -34,7 +34,6 @@ $("#send-comments").click(function() {
     USERNAME = $("#username").val();
     PASSWORD = $("#password").val();
     const comments = $("#comments").val();
-    console.log(username, password);
     var xhttp = new XMLHttpRequest();
     const params = `name=${USERNAME}&password=${PASSWORD}&comment=${comments}`;
     xhttp.onreadystatechange = function() {

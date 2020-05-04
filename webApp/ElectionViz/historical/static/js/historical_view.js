@@ -172,30 +172,29 @@ const colorMap = function() {
 }
 
 const createLegend = function() {
-    legendLayer.select('g').remove();
-    const legend = legendLayer.append("g")
-                                .attr("class", "quantize")
-                                .attr("transform", "translate(" + width / 9 + "," + height / 2 + ")")
-                                .style('font-family', 'Garamond')
-                                .style('font-size', '16')
-                                .style('position', 'absolute');
+    const domain = ["100% Republican", "80% Republican", "60% Republican", "60% Democrat", "80% Democrat", "100% Democrat"];
+    const range = [drColorScale(0.0), drColorScale(0.2), drColorScale(0.4), drColorScale(0.6), drColorScale(0.8), drColorScale(1.0)];
 
     const quant = d3.scale.ordinal()
-                            .domain(domain)
-                            .range(range);
-    
-    let domain = []; // names of the legend boxes
-    let range = []; // colors of the legend boxes
-    for (let i = 0; i < redColor.length; i++) {
-
-    }
+                        .domain(domain)
+                        .range(range);
+        
+    const legend = legendLayer.append("g")
+                            .attr("class", "legend")
+                            .attr("transform", "translate(" + width * 6/9 + "," + height / 3 + ")")
+                            .style('font-family', 'Garamond')
+                            .style('font-size', '16')
+                            .style('position', 'absolute');
 
     const legendQuant = d3.legend.color()
-                                    .title("Color Legend")
+                                    // .title("Legend")
                                     .labelFormat(d3.format('.0f'))
                                     .scale(quant);
+
+    legend.call(legendQuant);
 }
 
 displayBaseMap();
 colorMap();
+createLegend();
 

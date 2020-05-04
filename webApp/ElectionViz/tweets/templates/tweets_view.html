@@ -38,7 +38,7 @@
     <script>
         let SETUP = 1; // 1 until basics are run for the first time
         let METRIC = 'num_tweets'; // num_tweets or total_likes
-        const POLARITY = 'combined';
+        let POLARITY = 'combined';
         let TWEET_DATA = JSON.parse('{{ data }}'.replace(/&quot;/g,'"'));
         const MAP_DATA = JSON.parse('{{ map_json }}'.replace(/&quot;/g,'"'));
         const TWEETS_INTERFACE = new TweetsInterface(TWEET_DATA);
@@ -55,14 +55,26 @@
     </div>
 
     <!-- metric chooser  -->
-    <div class="dropdown">
+    <div class="dropdown_tweets">
         <button class="btn btn-secondary dropdown-toggle" type="button" id="tweet_vs_likes_button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-            Tweets
+            Choose Metric
         </button>
         <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
-            <a class="dropdown-item" onclick="METRIC = 'num_tweets'; colorMap(); renameDropdown();">Tweets</a>
-            <a class="dropdown-item" onclick="METRIC = 'total_likes'; colorMap(); renameDropdown();">Likes</a>
-            <a class="dropdown-item" onclick="METRIC = 'avg_sentiment'; colorMap(); renameDropdown();">Average Sentiment</a>
+            <a class="dropdown-item" onclick="METRIC = 'num_tweets'; colorMap(); renameDropdown('METRIC');">Number of Tweets</a>
+            <a class="dropdown-item" onclick="METRIC = 'total_likes'; colorMap(); renameDropdown('METRIC');">Total Likes</a>
+            <a class="dropdown-item" onclick="METRIC = 'avg_sentiment'; colorMap(); renameDropdown('METRIC');">Average Sentiment</a>
+        </div>
+    </div>
+
+    <!-- polarity chooser  -->
+    <div class="dropdown_polarity">
+        <button class="btn btn-secondary dropdown-toggle" type="button" id="polarity_button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+            Choose Polarity
+        </button>
+        <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+            <a class="dropdown-item" onclick="POLARITY = 'P'; colorMap(); renameDropdown('POLARITY');">Positive</a>
+            <a class="dropdown-item" onclick="POLARITY = 'N'; colorMap(); renameDropdown('POLARITY');">Negative</a>
+            <a class="dropdown-item" onclick="POLARITY = 'combined'; colorMap(); renameDropdown('POLARITY');">Both</a>
         </div>
     </div>
 

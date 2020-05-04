@@ -10,21 +10,17 @@ const drColorScale = d3.scale.quantize()
                             .domain([0, 1.0])
                             .range(combinedList);
 
-const rColorScale = d3.scale.quantize()
-                        .domain([0, 1.0])
-                .range(redList);
 
-const blueCandidateColors = ['rgb(0, 63, 92)', 'rgb(122, 81, 149)', 'rgb(239, 86, 117)', 'rgb(255, 166, 0)'];
+const redCandidateColors = ['rgb(255, 40, 0)', 'rgb(66, 13, 9)', 'rgb(141, 2, 31)', 'rgb(180, 55, 87)'];
+const blueCandidateColors = ['rgb(42, 82, 190)', 'rgb(122, 81, 149)', 'rgb(10, 186, 181)', 'rgb(93, 138, 168)'];
 let cand_to_color = {'Democrat': {}, 'Republican': {}};
-// let opacity_dict = null;
 
 const set_cand_to_color = function(democrats, republicans) {
     for (let i = 0; i < democrats.length; i++) {
         cand_to_color['Democrat'][democrats[i]] = blueCandidateColors[i];
     }
-    // NEED TO ADD REPUBLICAN-ish colors, right now using blue
     for (let i = 0; i < republicans.length; i++) {
-        cand_to_color['Republican'][republicans[i]] = blueCandidateColors[i];
+        cand_to_color['Republican'][republicans[i]] = redCandidateColors[i];
     }
 }
 
@@ -41,15 +37,6 @@ class ColorInterface {
         const vals = TWEETS_INTERFACE.get_values(district, party, candidates, metric, polarity);
         if (vals === null) {
             return [d3.rgb(0, 0, 0), 1.0];
-        }
-        else if (candidates.length === 1) {
-            // only looking at one candidate
-            if (party === 'Democrat') {
-                return [drColorScale(0.75), 1.0]
-            }
-            else {
-                return [drColorScale(0.25), 1.0]
-            }
         }
         let max_val = null;
         let max_c = null;
@@ -119,6 +106,34 @@ class ColorInterface {
         }
         else {
             return this.choose_color_cp(district, democrats, republicans, metric, polarity);
+        }
+    }
+
+    /**
+     * Used to create the legend
+     * Returns domain, range where domain is a list of labels for legend boxes, and range is the corresponding color
+     */
+    find_legend_domain_range(democrats, republicans) {
+        if (democrats.length === 0 && republicans.length !== 0) {
+            const domain = Object.keys(cand_to_color['Republican']);
+            let range = [];
+            for (let i = 0; i < domain.length; i++) {
+                range.push(cand_to_color['Republican'][domain[i]]);
+            }
+            return [domain, range];
+        }
+        else if (democrats.length !== 0 && republicans.length === 0) {
+            const domain = Object.keys(cand_to_color['Democrat']);
+            let range = [];
+            for (let i = 0; i < domain.length; i++) {
+                range.push(cand_to_color['Democrat'][domain[i]]);
+            }
+            return [domain, range];
+        }
+        else {
+            const domain = ["100% Republican", "80% Republican", "60% Republican", "60% Democrat", "80% Democrat", "100% Democrat"];
+            const range = [drColorScale(0.0), drColorScale(0.2), drColorScale(0.4), drColorScale(0.6), drColorScale(0.8), drColorScale(1.0)];
+            return [domain, range];
         }
     }
 }

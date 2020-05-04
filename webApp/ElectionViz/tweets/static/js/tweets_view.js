@@ -14,15 +14,27 @@ const reset = function() {
     opacity_dict = null;
 }
 
-const renameDropdown = function() {
-    let newText = 'Tweets ';
-    if (METRIC === 'total_likes') {
-        newText = 'Likes ';
+const renameDropdown = function(type) {
+    if (type === 'METRIC') {
+        let newText = 'Tweets ';
+        if (METRIC === 'total_likes') {
+            newText = 'Likes ';
+        }
+        else if (METRIC === 'avg_sentiment') {
+            newText = 'Sentiment ';
+        }
+        $("#tweet_vs_likes_button").text(newText);
     }
-    else if (METRIC === 'avg_sentiment') {
-        newText = 'Sentiment ';
+    else if (type === 'POLARITY') {
+        let newText = 'Both ';
+        if (POLARITY === 'P') {
+            newText = 'Positive ';
+        }
+        else if (POLARITY === 'N') {
+            newText = 'Negative ';
+        }
+        $("#polarity_button").text(newText);
     }
-    $("#tweet_vs_likes_button").text(newText);
 };
 
 const updateCandidates = function() {
@@ -42,7 +54,7 @@ const updateCandidates = function() {
 }
 
 // declare variables
-color_interface = new ColorInterface(DEMOCRAT_CANDIDATES, REPUBLICAN_CANDIDATES);
+let COLOR_INTERFACE = new ColorInterface(DEMOCRAT_CANDIDATES, REPUBLICAN_CANDIDATES);
 
 let chosen_democrats = [];
 let chosen_republicans = [];
@@ -64,7 +76,7 @@ const svg = d3.select('svg')
                 .attr('height', height);
 
 const legendLayer = svg.append('g')
-                        .classed('map-layer', true);
+                        .classed('legend-layer', true);
 
 const mapLayer = svg.append('g')
                     .classed('map-layer', true);
@@ -191,37 +203,36 @@ const displayBaseMap = function () {
 const colorMap = function() {
     mapLayer.selectAll('path')
         .style('fill', function (d) {
-            const [color, opacity] = color_interface.choose_color(d.properties['DISTRICT'], chosen_democrats, chosen_republicans, METRIC, POLARITY);
+            const [color, opacity] = COLOR_INTERFACE.choose_color(d.properties['DISTRICT'], chosen_democrats, chosen_republicans, METRIC, POLARITY);
             d3.select(this).transition()
                             .duration('50')
                             .attr('opacity', opacity);
             return color;
         });
+    createLegend();
 }
 
 const createLegend = function() {
-    legendLayer.select('g').remove();
-    const legend = legendLayer.append("g")
-                                .attr("class", "quantize")
-                                .attr("transform", "translate(" + width / 9 + "," + height / 2 + ")")
-                                .style('font-family', 'Garamond')
-                                .style('font-size', '16')
-                                .style('position', 'absolute');
+    const [domain, range] = COLOR_INTERFACE.find_legend_domain_range(chosen_democrats, chosen_republicans);
 
     const quant = d3.scale.ordinal()
-                            .domain(domain)
-                            .range(range);
-    
-    let domain = []; // names of the legend boxes
-    let range = []; // colors of the legend boxes
-    for (let i = 0; i < redColor.length; i++) {
-
-    }
+                        .domain(domain)
+                        .range(range);
+        
+    legendLayer.select('g').remove();
+    const legend = legendLayer.append("g")
+                            .attr("class", "legend")
+                            .attr("transform", "translate(" + width * 6/9 + "," + height / 3 + ")")
+                            .style('font-family', 'Garamond')
+                            .style('font-size', '16')
+                            .style('position', 'absolute');
 
     const legendQuant = d3.legend.color()
-                                    .title("Color Legend")
+                                    // .title("Legend")
                                     .labelFormat(d3.format('.0f'))
                                     .scale(quant);
+
+    legend.call(legendQuant);
 }
 
 displayBaseMap();

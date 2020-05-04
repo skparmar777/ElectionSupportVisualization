@@ -19,13 +19,19 @@ div.hover-text {
     white-space: pre-line;
 }
 
-.dropdown {
+.dropdown_tweets {
     position: absolute;
     left: 100px;
     top: 100px;
 }
 
-#tweet_vs_likes_button {
+.dropdown_polarity {
+    position: absolute;
+    left: 300px;
+    top: 100px;
+}
+
+.btn btn-secondary dropdown-toggle {
     width: 150px !important;
 }
 

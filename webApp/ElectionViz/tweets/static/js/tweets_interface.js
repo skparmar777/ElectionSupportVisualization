@@ -25,11 +25,14 @@ class TweetsInterface {
             if (ddict['combined'] === 'null') {
                 return null;
             }
+            if (!(polarity in ddict['combined']) || ddict['combined'][polarity] === 'null') {
+                return null;
+            }
             return {'combined': ddict['combined'][polarity][metric]};
         }
         let ret = {};
         for (let i = 0; i < candidates.length; i++) {
-            if (!(candidates[i] in ddict) || ddict[candidates[i]][polarity] === 'null') {
+            if (!(candidates[i] in ddict) || !(polarity in ddict[candidates[i]]) || ddict[candidates[i]][polarity] === 'null') {
                 continue;
             }
             ret[candidates[i]] = ddict[candidates[i]][polarity][metric];
@@ -49,8 +52,14 @@ class TweetsInterface {
          */
         // assert(polarity in ['P', 'N', 'combined']);
         const ddict = this.tweetsData[district][party];
-        if (candidate == null) {
+        if (candidate === null) {
+            if (!(polarity in ddict['combined']) || ddict['combined'][polarity] === 'null') {
+                return null;
+            }
             return ddict['combined'][polarity]['tweet'];
+        }
+        if (!(polarity in ddict[candidate])) {
+            return null;
         }
         return ddict[candidate][polarity]['tweet'];
     }
@@ -140,7 +149,7 @@ class TweetsInterface {
         let rep_total = 0;
         let dem_c = null;
         let rep_c = null;
-        if (metric == 'avg_sentiment') {
+        if (metric === 'avg_sentiment') {
             const dem_res = this.get_average_sentiment_data(district, 'Democrat', democrats, polarity);
             dem_total = dem_res['avg_sentiment'];
             dem_c = dem_res['max_candidate'];
@@ -150,16 +159,17 @@ class TweetsInterface {
         else {
             const dem_values = this.get_values(district, 'Democrat', democrats, metric, polarity);
             const rep_values = this.get_values(district, 'Republican', republicans, metric, polarity);
-            let dem_contrib = 0;
-            let rep_contrib = 0;
+            let dem_contrib_m = 0;
+            let rep_contrib_m = 0;
             if (dem_values === null) {
                 dem_total = null;
             }
             else {
                 for (let k in dem_values) {
                     dem_total += dem_values[k];
-                    if (dem_values[k] > dem_contrib) {
+                    if (dem_values[k] > dem_contrib_m) {
                         dem_c = k;
+                        dem_contrib_m = dem_values[k];
                     }
                 }
             }
@@ -169,8 +179,9 @@ class TweetsInterface {
             else {
                 for (let k in rep_values) {
                     rep_total += rep_values[k];
-                    if (rep_values[k] > rep_contrib) {
+                    if (rep_values[k] > rep_contrib_m) {
                         rep_c = k;
+                        rep_contrib_m = rep_values[k];
                     }
                 }
             }
@@ -178,10 +189,10 @@ class TweetsInterface {
         if (dem_total === null && rep_total === null) {
             return null;
         }
-        else if (dem_total === null) {
+        if (dem_total === null) {
             dem_total = 0;
         }
-        else if (rep_total === null) {
+        if (rep_total === null) {
             rep_total = 0;
         }
         let larger_group = 'Democrat';
@@ -190,6 +201,7 @@ class TweetsInterface {
         let smaller_group_metric = rep_total;
         let max_c = dem_c;
         if (dem_total < rep_total) {
+            // look for positive tweets
             larger_group = 'Republican';
             smaller_group = 'Democrat';
             larger_group_metric = rep_total;
