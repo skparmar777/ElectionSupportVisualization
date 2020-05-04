@@ -3,6 +3,11 @@
 // tweet keys: likes, username, tweet_text, tweet_date, date_descriptor
 // there are also 'combined' values at the CANDIDATE and PARTY level
 
+// define a function on strings to turn "COOK COUNTY" into "Cook County"
+String.prototype.toProperCase = function () {
+    return this.replace(/\w\S*/g, function(txt){return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();});
+};
+
 const reset = function() {
     chosen_democrats = [];
     chosen_republicans = [];
@@ -88,9 +93,9 @@ const metric_as_string = function(metric) {
     return '<i class="fas fa-poll"></i>';
 }
 
-const construct_hover_text = function(district) {
+const construct_hover_text = function(district, name) {
     /**  FORMAT:
-        Distric <id>
+        Distric: name
         pctg% <larger_group>
         <larger_group_metric> <larger_group_symbol> <metric_as_string>, <smaller_group_metric> <smaller_group_symbol> <metric_as_string>
 
@@ -117,7 +122,7 @@ const construct_hover_text = function(district) {
         date_string = 'Week of ' + splits[0] + ' '  + splits[1]
    }
     
-   const string = `District ${district}\n \
+   const string = `County: ${name.toProperCase()}\n \
                      ${pctg}% ${data['larger_group']}\n \
                      ${data['larger_group_metric']} ${get_symbol(data['larger_group'])} ${mas}, ${data['smaller_group_metric']} ${get_symbol(data['smaller_group'])} ${mas}\n \
                      \n \
@@ -158,7 +163,8 @@ const displayBaseMap = function () {
             hover_div.transition()
                  .duration(50)
                  .style("opacity", 1);
-            const text = construct_hover_text(d.properties['DISTRICT']);
+            const text = construct_hover_text(d.properties['DISTRICT'], d.properties['COUNTY_NAM']);
+            d.properties['OLD_OPACITY'] = $(this).css("opacity");
             if (text !== null) {
                 hover_div.html(text)
                             .style("left", (d3.event.pageX + 10) + "px")
@@ -173,7 +179,7 @@ const displayBaseMap = function () {
        .on('mouseout', function (d, i) {
             d3.select(this).transition()
                 .duration('50')
-                .attr('opacity', '1');
+                .attr('opacity', d.properties['OLD_OPACITY']);
             hover_div.transition()
                  .duration('50')
                  .style("opacity", 0);
@@ -185,10 +191,10 @@ const displayBaseMap = function () {
 const colorMap = function() {
     mapLayer.selectAll('path')
         .style('fill', function (d) {
-            const color = color_interface.chose_color(d.properties['DISTRICT'], chosen_democrats, chosen_republicans, METRIC, POLARITY);
-            // d3.select(this).transition()
-            //                 .duration('50')
-            //                 .attr('opacity', opacity_dict[d.properties['DISTRICT']]);
+            const [color, opacity] = color_interface.choose_color(d.properties['DISTRICT'], chosen_democrats, chosen_republicans, METRIC, POLARITY);
+            d3.select(this).transition()
+                            .duration('50')
+                            .attr('opacity', opacity);
             return color;
         });
 }
