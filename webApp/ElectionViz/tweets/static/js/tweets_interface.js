@@ -32,7 +32,7 @@ class TweetsInterface {
         }
         let ret = {};
         for (let i = 0; i < candidates.length; i++) {
-            if (!(candidates[i] in ddict) || !(polarity in ddict[candidates[i]]) || ddict[candidates[i]][polarity] === 'null') {
+            if (candidates[i] === 'combined' || !(candidates[i] in ddict) || !(polarity in ddict[candidates[i]]) || ddict[candidates[i]][polarity] === 'null') {
                 continue;
             }
             ret[candidates[i]] = ddict[candidates[i]][polarity][metric];
@@ -52,6 +52,9 @@ class TweetsInterface {
          */
         // assert(polarity in ['P', 'N', 'combined']);
         const ddict = this.tweetsData[district][party];
+        if (ddict === 'null') {
+            return null;
+        }
         if (candidate === null) {
             if (!(polarity in ddict['combined']) || ddict['combined'][polarity] === 'null') {
                 return null;
@@ -85,7 +88,7 @@ class TweetsInterface {
         let max_v = 0;
         let max_c = null;
         for (let k in avg_sentiment_vals) {
-            const norm = (avg_sentiment_vals[k] + 1 / 2) * num_tweet_vals[k];
+            const norm = ((avg_sentiment_vals[k] + 1) / 2) * num_tweet_vals[k];
             total += norm; // normalizes to 0-1 for easy ratio-making
             total_tweets += num_tweet_vals[k];
             if (norm > max_v) {
@@ -94,9 +97,9 @@ class TweetsInterface {
             }
         }
         return {
-            'avg_sentiment': total / total_tweets,
+            'avg_sentiment': (total / total_tweets) * 2 - 1, // scale back to -1 to 1
             'max_candidate': max_c,
-            'contribution': max_v / total_tweets
+            'contribution': max_v / total // percentage of total
         };
     }
 
@@ -113,9 +116,18 @@ class TweetsInterface {
         let total_metric = 0;
         if (metric === 'avg_sentiment') {
             const party_res = this.get_average_sentiment_data(district, party, candidates, polarity);
-            total_metric = party_res['avg_sentiment'];
+            total_metric = (party_res['avg_sentiment'] + 1)/2; // normalize to 0-1
             max_c = party_res['max_candidate'];
-            max_contrib = party_res['contribution'];
+            max_contrib = party_res['contribution']; // percentage of total_metric from max candidate
+            let max_c_tmp = max_contrib * total_metric; // normalized importance
+            if (metric === "avg_sentiment") {
+                for (let i = 0; i < candidates.length; i++) {
+                    if (!(candidates[i] in vals)) {
+                        total_metric += 0.5; // assume neutral
+                    }
+                }
+            }
+            max_contrib = max_c_tmp / total_metric;
         }
         else {
             for (let k in vals) {
@@ -129,12 +141,30 @@ class TweetsInterface {
         if (max_c === null) {
             return null;
         }
-        const tweet = this.get_tweet(district, party, max_c, polarity);
+        let larger_group_metric = max_contrib;
+        let smaller_group_metric = total_metric - max_contrib;
+        if (metric === 'avg_sentiment') {
+            // scale back to -1 to 1
+            larger_group_metric = (2 * max_contrib * total_metric) - 1;
+            smaller_group_metric = 2 * (total_metric - max_contrib * total_metric) - 1;
+        }
+        if (polarity === 'combined') {
+            // this tells the get_tweet function to get the largest contributor
+            // but only using the most positive contributor
+            polarity = 'P';
+        }
+        let tweet = this.get_tweet(district, party, max_c, polarity);
+        if (tweet == null) {
+            // this can happen in the avg_sentiment case when the state has no data
+            // on the winning class and it was only chosen as winning because
+            // the other group had negative avg_sentiment
+            tweet = this.get_tweet(district, party, max_c, 'combined');
+        }
         return {
             'larger_group': max_c,
             'smaller_group': 'Other', // if only two given, we could specify the other candidate
-            'larger_group_metric': max_contrib,
-            'smaller_group_metric': total_metric - max_contrib,
+            'larger_group_metric': larger_group_metric,
+            'smaller_group_metric': smaller_group_metric,
             'tweet_text': tweet['tweet_text'],
             'username': tweet['username'],
             'likes': tweet['likes'],
@@ -200,6 +230,7 @@ class TweetsInterface {
         let larger_group_metric = dem_total;
         let smaller_group_metric = rep_total;
         let max_c = dem_c;
+        let smaller_max_c = rep_c;
         if (dem_total < rep_total) {
             // look for positive tweets
             larger_group = 'Republican';
@@ -207,9 +238,28 @@ class TweetsInterface {
             larger_group_metric = rep_total;
             smaller_group_metric = dem_total;
             max_c = rep_c;
+            smaller_max_c = dem_c;
         }
-        // only using to find the max contributor for the tweet
-        const tweet = this.get_tweet(district, larger_group, max_c, polarity);
+        if (polarity === 'combined') {
+            // this tells the get_tweet function to get the largest contributor
+            // but only using the most positive contributor
+            polarity = 'P';
+        }
+        let tweet = this.get_tweet(district, larger_group, max_c, polarity);
+        if (tweet == null) {
+            // this can happen in the avg_sentiment case when the state has no data
+            // on the winning class and it was only chosen as winning because
+            // the other group had negative avg_sentiment
+            tweet = this.get_tweet(district, smaller_group, smaller_max_c, polarity);
+            if (tweet == null) {
+                // if tweet is still null, try the most negative of the larger class
+                tweet = this.get_tweet(district, larger_group, max_c, 'N');
+                if (tweet == null) {
+                    // if tweet is still null, try the most negative of the smaller class
+                    tweet = this.get_tweet(district, smaller_group, smaller_max_c, 'N');
+                }
+            }
+        }
         return {
             'larger_group': larger_group,
             'smaller_group': smaller_group,

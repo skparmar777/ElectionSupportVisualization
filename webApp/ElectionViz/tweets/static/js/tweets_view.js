@@ -120,11 +120,20 @@ const construct_hover_text = function(district, name) {
    if (data === null) {
        return null;
    }
-   const pctg = (100 * data['larger_group_metric'] / (data['larger_group_metric'] + data['smaller_group_metric'])).toFixed(2);
-   if (METRIC === 'avg_sentiment') {
-       // push back to between -1 and 1 for displaying
-       data['larger_group_metric'] = (data['larger_group_metric'] * 2 - 1).toFixed(2);
-       data['smaller_group_metric'] = (data['smaller_group_metric'] * 2 - 1).toFixed(2);
+   let num = data['larger_group_metric'];
+   let denom = data['larger_group_metric'] + data['smaller_group_metric'];
+   if (denom === 0) {
+       denom = 1;
+        if (num == 0) {
+            num = 1;
+        }
+   }
+   let pctg = (100 * (num / denom)).toFixed(2);
+    if (METRIC === 'avg_sentiment') {
+       pctg = (100 * ((data['larger_group_metric'] + 1) / 2) / (((data['larger_group_metric'] + 1) / 2)+ ((data['smaller_group_metric'] + 1) / 2))).toFixed(2);
+       // render the usual -1 to 1
+       data['larger_group_metric'] = data['larger_group_metric'].toFixed(2);
+       data['smaller_group_metric'] = data['smaller_group_metric'].toFixed(2);
    }
    const sentiment = data['sentiment'].toFixed(2);
    const mas = metric_as_string(METRIC);

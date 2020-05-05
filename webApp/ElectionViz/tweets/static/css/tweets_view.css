@@ -17,6 +17,8 @@ div.hover-text {
     pointer-events: none;
     font-size: 1rem;
     white-space: pre-line;
+    width: 300px !important;
+    word-wrap: "break-word";
 }
 
 .dropdown_tweets {
@@ -47,4 +49,5 @@ div.hover-text {
     top: 300px;
     width: 300px;
 }
+
 

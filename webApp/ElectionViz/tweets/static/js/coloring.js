@@ -38,6 +38,22 @@ class ColorInterface {
         if (vals === null) {
             return [d3.rgb(0, 0, 0), 1.0];
         }
+        if (metric === 'avg_sentiment') {
+            const party_res = TWEETS_INTERFACE.get_average_sentiment_data(district, party, candidates, polarity);
+            let total_metric = (party_res['avg_sentiment'] + 1)/2; // normalize to 0-1
+            const max_c = party_res['max_candidate'];
+            let max_contrib = party_res['contribution']; // percentage of total_metric from max candidate
+            let max_c_tmp = max_contrib * total_metric; // normalized importance
+            if (metric === "avg_sentiment") {
+                for (let i = 0; i < candidates.length; i++) {
+                    if (!(candidates[i] in vals)) {
+                        total_metric += 0.5; // assume neutral
+                    }
+                }
+            }
+            max_contrib = max_c_tmp / total_metric;
+            return [cand_to_color[party][max_c], max_contrib];
+        }
         let max_val = null;
         let max_c = null;
         let total_val = null;
@@ -58,18 +74,20 @@ class ColorInterface {
      */
     choose_color_cp(district, democrats, republicans, metric, polarity) {
         if (metric == 'avg_sentiment') {
-            // special case, can't just sum
-            const dem_value = TWEETS_INTERFACE.get_average_sentiment_data(district, 'Democrat', democrats, polarity)['avg_sentiment'];
-            const rep_value = TWEETS_INTERFACE.get_average_sentiment_data(district, 'Republican', republicans, polarity)['avg_sentiment'];
+            // special case, can't just sum so need to use special function to aggregate
+            let dem_value = TWEETS_INTERFACE.get_average_sentiment_data(district, 'Democrat', democrats, polarity)['avg_sentiment'];
+            let rep_value = TWEETS_INTERFACE.get_average_sentiment_data(district, 'Republican', republicans, polarity)['avg_sentiment'];
             if (dem_value === null && rep_value === null) {
                 return [d3.rgb(0, 0, 0), 1.0];
             }
             else if (dem_value === null) {
-                return [drColorScale(0), 1.0]
+                dem_value = 0; // assume neutral support
             }
             else if (rep_value === null) {
-                return [drColorScale(1), 1.0]
+                rep_value = 0; // assume neutral support
             }
+            dem_value = (1 + dem_value) / 2; // normalize between 0-1
+            rep_value = (1 + rep_value) / 2; // normalize between 0-1
             return [drColorScale(dem_value / (dem_value + rep_value)), 1.0]
         }
         const dem_values = TWEETS_INTERFACE.get_values(district, 'Democrat', democrats, metric, polarity);
