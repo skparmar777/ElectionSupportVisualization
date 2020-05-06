@@ -174,6 +174,8 @@ const colorMap = function() {
 const createLegend = function() {
     const domain = ["100% Republican", "80% Republican", "60% Republican", "60% Democrat", "80% Democrat", "100% Democrat"];
     const range = [drColorScale(0.0), drColorScale(0.2), drColorScale(0.4), drColorScale(0.6), drColorScale(0.8), drColorScale(1.0)];
+    domain.push('No data');
+    range.push(d3.rgb(0, 0, 0)); // black
 
     const quant = d3.scale.ordinal()
                         .domain(domain)

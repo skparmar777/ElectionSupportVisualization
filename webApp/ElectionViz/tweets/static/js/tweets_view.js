@@ -223,6 +223,8 @@ const colorMap = function() {
 
 const createLegend = function() {
     const [domain, range] = COLOR_INTERFACE.find_legend_domain_range(chosen_democrats, chosen_republicans);
+    domain.push('No data');
+    range.push(d3.rgb(0, 0, 0)); // black
 
     const quant = d3.scale.ordinal()
                         .domain(domain)

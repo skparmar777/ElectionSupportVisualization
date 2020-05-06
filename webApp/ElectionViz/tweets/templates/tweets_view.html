@@ -37,7 +37,7 @@
     <!-- initializes global variables in JS -->
     <script>
         let SETUP = 1; // 1 until basics are run for the first time
-        let METRIC = 'num_tweets'; // num_tweets or total_likes
+        let METRIC = 'avg_sentiment'; // num_tweets, total_likes, avg_sentiment
         let POLARITY = 'combined';
         let TWEET_DATA = JSON.parse('{{ data }}'.replace(/&quot;/g,'"'));
         const MAP_DATA = JSON.parse('{{ map_json }}'.replace(/&quot;/g,'"'));
@@ -57,7 +57,7 @@
     <!-- metric chooser  -->
     <div class="dropdown_tweets">
         <button class="btn btn-secondary dropdown-toggle" type="button" id="tweet_vs_likes_button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-            Choose Metric
+            Average Sentiment
         </button>
         <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
             <a class="dropdown-item" onclick="METRIC = 'num_tweets'; colorMap(); renameDropdown('METRIC');">Number of Tweets</a>
@@ -69,7 +69,7 @@
     <!-- polarity chooser  -->
     <div class="dropdown_polarity">
         <button class="btn btn-secondary dropdown-toggle" type="button" id="polarity_button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-            Choose Polarity
+            Polarity: Both
         </button>
         <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
             <a class="dropdown-item" onclick="POLARITY = 'P'; colorMap(); renameDropdown('POLARITY');">Positive</a>
