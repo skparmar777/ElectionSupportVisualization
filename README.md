@@ -28,3 +28,11 @@ to insert a bunch of random tweets into the database, run:
     generate_and_push_tweets(1000)
 ```
 
+## Twitter Scraper
+To run the twitter scraper and generate a csv of tweet data:
+
+Navigate to scripts and do:
+```
+python3 twitterScraper.py
+```
+Feel free to set up a cron job to automate running this script.
